@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, Sparkles, MapPin } from 'lucide-react';
+import { useScrollToBottom } from '../hooks/useScrollToBottom';
+import { apiPost, ApiError } from '../lib/api';
 
 interface SuggestedAction {
   type: string;
@@ -9,6 +11,9 @@ interface SuggestedAction {
 interface Message {
   sender: 'user' | 'assistant';
   text: string;
+  isError?: boolean;
+  errorCode?: string;
+  suggestion?: string;
   suggestedAction?: SuggestedAction | null;
 }
 
@@ -31,12 +36,9 @@ export default function PlanningAssistant({
     }
   ]);
   const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom of chat
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const { containerRef, sentinelRef, scrollToBottom } = useScrollToBottom([messages]);
+  // Scroll to bottom on initial mount
+  useEffect(() => { scrollToBottom('auto'); }, []);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,37 +50,70 @@ export default function PlanningAssistant({
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/simulations/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          prompt: userText,
-          scenario_id: scenarioId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to reach assistant');
-      }
-
-      const data = await response.json();
+      const data = await apiPost<{ reply: string; suggested_action?: SuggestedAction | null }>(
+        '/api/simulations/assistant',
+        { prompt: userText, scenario_id: scenarioId },
+        { token: authToken }
+      );
       setMessages(prev => [...prev, {
         sender: 'assistant',
         text: data.reply,
         suggestedAction: data.suggested_action
       }]);
     } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+
+      // Map error codes to user-friendly icons + messages
+      const errorMessages: Record<string, { icon: string; text: string }> = {
+        UNAUTHORIZED: {
+          icon: '🔐',
+          text: 'Session expired — your login token is no longer valid.'
+        },
+        FORBIDDEN: {
+          icon: '🚫',
+          text: 'Access denied — your account role does not have permission to use the AI Coordinator.'
+        },
+        NOT_FOUND: {
+          icon: '🔍',
+          text: 'AI Assistant endpoint not found (404). The backend may need to be restarted.'
+        },
+        SERVER_ERROR: {
+          icon: '💥',
+          text: 'Internal server error in the AI Coordinator. Check the Python console for stack traces.'
+        },
+        TIMEOUT: {
+          icon: '⏱️',
+          text: 'Request timed out — the AI Coordinator is taking too long to respond.'
+        },
+        NETWORK_ERROR: {
+          icon: '📡',
+          text: 'Cannot reach the backend server. Ensure FastAPI is running at http://127.0.0.1:8000.'
+        },
+        SERVICE_UNAVAILABLE: {
+          icon: '🔌',
+          text: 'Backend service is unavailable. It may be starting up or has crashed.'
+        }
+      };
+
+      const code = apiErr?.code ?? 'UNKNOWN';
+      const mapped = errorMessages[code] ?? {
+        icon: '⚠️',
+        text: apiErr?.message ?? 'An unexpected error occurred communicating with the AI Coordinator.'
+      };
+      const suggestion = apiErr?.suggestion ?? 'Check the browser DevTools → Network tab for details.';
+
       setMessages(prev => [...prev, {
         sender: 'assistant',
-        text: "⚠️ **System Communication Error**: Unable to establish contact with the AI coordinator. Please check if the FastAPI server is running."
+        isError: true,
+        errorCode: code,
+        suggestion,
+        text: `${mapped.icon} **${mapped.text}**\n\n💡 *${suggestion}*`
       }]);
     } finally {
       setLoading(false);
     }
   };
+
 
   const formatMessageText = (text: string) => {
     // Simple formatter for bolding, warning emojis, lists
@@ -120,8 +155,8 @@ export default function PlanningAssistant({
         </h3>
       </div>
 
-      {/* Messages Box */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages Box — internally scrollable, never scrolls the page */}
+      <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ overscrollBehavior: 'contain' }}>
         {messages.map((msg, index) => (
           <div
             key={index}
@@ -157,7 +192,7 @@ export default function PlanningAssistant({
             AI System is running multi-agent checks...
           </div>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={sentinelRef} />
       </div>
 
       {/* Input Form */}

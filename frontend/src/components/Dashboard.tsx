@@ -115,19 +115,36 @@ export default function Dashboard({
   return (
     <div className="space-y-6">
       {/* Simulation Trigger Bar */}
-      <div className="flex justify-between items-center bg-[#101625]/60 border border-brand-border p-4 rounded-2xl glass-panel">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-300">Run Planning Core</h2>
-          <p className="text-[10px] text-slate-500 mt-0.5">Propagates routes & loops GNN nodes on change</p>
+      <div className="flex flex-col gap-3 bg-[#101625]/60 border border-brand-border p-4 rounded-2xl glass-panel">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-300">Run Planning Core</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Propagates routes & loops GNN nodes on change</p>
+          </div>
+          <button
+            onClick={onRunSimulation}
+            disabled={simulating}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium text-xs rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all"
+          >
+            <RefreshCw size={14} className={simulating ? 'animate-spin' : ''} />
+            {simulating ? 'Recalculating Twin...' : 'Recalculate City State'}
+          </button>
         </div>
-        <button
-          onClick={onRunSimulation}
-          disabled={simulating}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium text-xs rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all"
-        >
-          <RefreshCw size={14} className={simulating ? 'animate-spin' : ''} />
-          {simulating ? 'Recalculating Twin...' : 'Recalculate City State'}
-        </button>
+        
+        {simulating && (
+          <div className="space-y-1 animate-fadeIn">
+            <div className="flex justify-between text-[9px] text-brand-neonCyan font-mono">
+              <span className="animate-pulse">⚡ SOLVING TRANSPORTATION ROUTING & CLOUD COGNITION GNN NODES...</span>
+              <span>calculating...</span>
+            </div>
+            <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-brand-border/20">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 via-brand-neonCyan to-emerald-500 rounded-full animate-simulationProgress shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+                style={{ width: '90%', transition: 'width 4s cubic-bezier(0.1, 0.8, 0.1, 1)' }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}

@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { User as UserIcon, LogOut, FileDown, Plus, LayoutDashboard, ArrowLeftRight, Settings } from 'lucide-react';
+import { User as UserIcon, LogOut, FileDown, Plus, LayoutDashboard, ArrowLeftRight, Settings, Radio, ShieldAlert } from 'lucide-react';
+import { apiFetch, apiPost, apiDelete, isTokenExpired, clearAuthState, registerOn401Handler, API_BASE_URL } from './lib/api';
 import AuthScreen from './components/AuthScreen';
 import MapPanel from './components/MapPanel';
 import Dashboard from './components/Dashboard';
 import PlanningAssistant from './components/PlanningAssistant';
 import ScenarioCompare from './components/ScenarioCompare';
 import AdminPanel from './components/AdminPanel';
+import OfflineBanner from './components/OfflineBanner';
+import RoleDashboard from './components/RoleDashboard';
+import SystemHealthPanel from './components/SystemHealthPanel';
+import { useCityStream } from './hooks/useCityStream';
+import CommandCenter from './components/CommandCenter';
 
 interface Scenario {
   id: number;
@@ -18,9 +24,19 @@ interface Scenario {
 }
 
 export default function App() {
+  const { data: streamData, connected: streamConnected, retryCount } = useCityStream();
+
   const [token, setToken] = useState<string>(localStorage.getItem('token') || '');
   const [role, setRole] = useState<string>(localStorage.getItem('role') || '');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'compare' | 'admin'>('dashboard');
+  const [roleOverride, setRoleOverride] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'live_twin' | 'dashboard' | 'compare' | 'admin' | 'health'>('live_twin');
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [lastTickTimestamp, setLastTickTimestamp] = useState<string | undefined>();
+
+  // Track last-known-good tick timestamp for offline banner
+  useEffect(() => {
+    if (streamData?.timestamp) setLastTickTimestamp(streamData.timestamp);
+  }, [streamData?.timestamp]);
 
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
 
@@ -43,27 +59,43 @@ export default function App() {
     localStorage.setItem('role', newRole);
     setToken(newToken);
     setRole(newRole);
+    setSessionExpired(false);
   };
 
   // Handle Logout
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
+    clearAuthState();
     setToken('');
     setRole('');
+    setSessionExpired(false);
   };
+
+  // Register global 401 handler — fires when any apiFetch call gets a 401
+  useEffect(() => {
+    registerOn401Handler(() => {
+      setSessionExpired(true);
+      setToken('');
+      setRole('');
+    });
+  }, []);
+
+  // Check token expiry on mount — clear stale tokens before any fetch
+  useEffect(() => {
+    if (token && isTokenExpired()) {
+      console.warn('[Auth] Stored JWT is expired — clearing auth state.');
+      clearAuthState();
+      setToken('');
+      setRole('');
+      setSessionExpired(true);
+    }
+  }, []);
 
   // Fetch all Scenarios
   const fetchScenarios = async () => {
     if (!token) return;
     try {
-      const response = await fetch('http://localhost:8000/api/scenarios', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error("Failed to load scenarios");
-      const data = await response.json();
+      const data = await apiFetch<Scenario[]>('/api/scenarios', { token });
       setScenarios(data);
-      
       // Auto-select baseline scenario if none selected yet
       if (data.length > 0 && activeScenarioId === null) {
         const baseline = data.find((s: any) => s.status === 'baseline');
@@ -71,7 +103,7 @@ export default function App() {
         setActiveScenarioId(selectedId);
       }
     } catch (err) {
-      console.error(err);
+      console.error('[App] fetchScenarios failed:', err);
     }
   };
 
@@ -79,17 +111,12 @@ export default function App() {
   const fetchScenarioDetails = async (id: number) => {
     if (!token) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/scenarios/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error("Failed to load scenario details");
-      const data = await response.json();
+      const data = await apiFetch<any>(`/api/scenarios/${id}`, { token });
       setElements(data.elements);
-
       // Run simulation trigger to load initial stats & forecast
       triggerSimulation(id);
     } catch (err) {
-      console.error(err);
+      console.error('[App] fetchScenarioDetails failed:', err);
     }
   };
 
@@ -98,19 +125,16 @@ export default function App() {
     if (!token) return;
     setSimulating(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/simulations/run/${id}`, {
+      const data = await apiFetch<any>(`/api/simulations/run/${id}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        token
       });
-      if (!response.ok) throw new Error("Simulation run error");
-      const data = await response.json();
-      
       setMetrics(data.metrics);
       setExplanation(data.explanation);
       setRecommendations(data.recommendations);
       setForecast(data.forecast);
     } catch (err) {
-      console.error(err);
+      console.error('[App] triggerSimulation failed:', err);
     } finally {
       setSimulating(false);
     }
@@ -120,32 +144,23 @@ export default function App() {
   const handleAddElement = async (type: string, name: string, coords: [number, number]) => {
     if (!activeScenarioId || !token) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/scenarios/${activeScenarioId}/elements`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      await apiPost(
+        `/api/scenarios/${activeScenarioId}/elements`,
+        {
           type,
           name,
           location_geojson: JSON.stringify({ type: 'Point', coordinates: coords }),
           radius: type === 'hospital' ? 1500 : (type === 'metro' ? 800 : (type === 'green_space' ? 1000 : 0)),
           capacity: type === 'hospital' ? 500 : (type === 'metro' ? 15000 : 0),
           cost: type === 'hospital' ? 120000000 : (type === 'metro' ? 75000000 : (type === 'green_space' ? 8000000 : (type === 'flyover' ? 18000000 : (type === 'road_widening' ? 4000000 : 50000))))
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        alert(errData.detail || "Unable to add element");
-        return;
-      }
-      
+        },
+        { token }
+      );
       // Refresh scenario details (triggers simulation automatically)
       fetchScenarioDetails(activeScenarioId);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('[App] handleAddElement failed:', err);
+      alert(err?.message ?? 'Unable to add element');
     }
   };
 
@@ -153,16 +168,14 @@ export default function App() {
   const handleRemoveElement = async (elementId: number) => {
     if (!activeScenarioId || !token) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/scenarios/${activeScenarioId}/elements/${elementId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error("Delete element failed");
-      
+      await apiDelete(
+        `/api/scenarios/${activeScenarioId}/elements/${elementId}`,
+        { token }
+      );
       // Refresh
       fetchScenarioDetails(activeScenarioId);
     } catch (err) {
-      console.error(err);
+      console.error('[App] handleRemoveElement failed:', err);
     }
   };
 
@@ -172,36 +185,29 @@ export default function App() {
     if (!newScenName.trim() || !token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/scenarios', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const data = await apiPost<Scenario>(
+        '/api/scenarios',
+        {
           name: newScenName,
           description: newScenDesc,
           baseline_id: scenarios.find(s => s.status === 'baseline')?.id
-        })
-      });
-
-      if (!response.ok) throw new Error("Failed to create scenario");
-      const data = await response.json();
-      
+        },
+        { token }
+      );
       setScenarios(prev => [...prev, data]);
       setActiveScenarioId(data.id);
       setNewScenName('');
       setNewScenDesc('');
       setCreatingScenario(false);
     } catch (err) {
-      console.error(err);
+      console.error('[App] handleCreateScenario failed:', err);
     }
   };
 
   // Download Report
   const handleDownloadReport = () => {
     if (!activeScenarioId) return;
-    window.open(`http://localhost:8000/api/reports/download/${activeScenarioId}?token=${token}`, '_blank');
+    window.open(`${API_BASE_URL}/api/reports/download/${activeScenarioId}?token=${token}`, '_blank');
   };
 
   // Load scenarios on authentication
@@ -219,11 +225,17 @@ export default function App() {
   }, [activeScenarioId]);
 
   if (!token) {
-    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} sessionExpired={sessionExpired} />;
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090d16] text-gray-100">
+    <div className="h-screen overflow-hidden flex flex-col bg-[#090d16] text-gray-100">
+      {/* Offline / reconnection banner */}
+      <OfflineBanner
+        isConnected={streamConnected}
+        lastSyncTimestamp={lastTickTimestamp}
+        retryCount={retryCount}
+      />
       {/* Top Navbar */}
       <header className="border-b border-brand-border bg-[#101625]/80 backdrop-blur-md sticky top-0 z-[2000] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -238,6 +250,17 @@ export default function App() {
 
         {/* Tab Selection */}
         <nav className="flex items-center gap-1.5 bg-[#0d1220] p-1 border border-brand-border rounded-xl">
+          <button
+            onClick={() => setActiveTab('live_twin')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              activeTab === 'live_twin'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Radio size={13} className="animate-pulse text-brand-neonCyan" />
+            Live 3D Twin
+          </button>
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
@@ -273,6 +296,19 @@ export default function App() {
               System Admin
             </button>
           )}
+          {(role === 'Administrator' || roleOverride === 'Administrator') && (
+            <button
+              onClick={() => setActiveTab('health')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === 'health'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ShieldAlert size={13} />
+              Health
+            </button>
+          )}
         </nav>
 
         {/* User Info & Actions */}
@@ -294,8 +330,19 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Panel Content */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
+      {/* Role-based dashboard wrapper */}
+      <RoleDashboard
+        role={role}
+        streamData={streamData}
+        onRoleOverride={setRoleOverride}
+        activeOverride={roleOverride}
+      >
+
+      {/* Live Twin full-screen mode */}
+      {activeTab === 'live_twin' ? (
+        <CommandCenter authToken={token} role={role} streamData={streamData} streamConnected={streamConnected} />
+      ) : (
+      <main className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 p-6" style={{ overscrollBehavior: 'contain' }}>
         {/* Left Interactive Workspace (Map / Comparison / Admin) */}
         <section className="lg:col-span-8 flex flex-col gap-6">
           {activeTab === 'dashboard' ? (
@@ -309,6 +356,8 @@ export default function App() {
                   selectedTool={selectedTool}
                   setSelectedTool={setSelectedTool}
                   trafficData={forecast}
+                  activeCity={streamData?.active_city}
+                  graph={streamData?.city_graph}
                 />
               </div>
 
@@ -464,6 +513,8 @@ export default function App() {
             </>
           ) : activeTab === 'compare' ? (
             <ScenarioCompare scenarios={scenarios} authToken={token} />
+          ) : activeTab === 'health' ? (
+            <SystemHealthPanel authToken={token} />
           ) : (
             <AdminPanel authToken={token} />
           )}
@@ -495,6 +546,9 @@ export default function App() {
           )}
         </section>
       </main>
+      )}
+
+      </RoleDashboard>
     </div>
   );
 }

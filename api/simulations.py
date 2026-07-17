@@ -24,6 +24,9 @@ class AssistantRequest(BaseModel):
 class AssistantResponse(BaseModel):
     reply: str
     suggested_action: Optional[Dict[str, Any]] = None
+    confidence_score: Optional[float] = 95.0
+    assumptions: Optional[List[str]] = []
+    limitations: Optional[List[str]] = []
 
 @router.post("/run/{scenario_id}")
 def run_scenario_simulation(
@@ -155,7 +158,10 @@ def planning_assistant(
         )
         return {
             "reply": reply,
-            "suggested_action": {"type": "green_space", "name": "Storm Runoff Retention Park"}
+            "suggested_action": {"type": "green_space", "name": "Storm Runoff Retention Park"},
+            "confidence_score": 88.5,
+            "assumptions": ["Precipitation increase occurs uniformly", "No sudden dam failure upstream"],
+            "limitations": ["Assumes Soil Saturation index holds baseline value", "Excludes micro-climatic wind tunnels"]
         }
 
     # 2. Intent: Hospital placement
@@ -170,7 +176,10 @@ def planning_assistant(
         )
         return {
             "reply": reply,
-            "suggested_action": {"type": "hospital", "name": "Westside Emergency Center"}
+            "suggested_action": {"type": "hospital", "name": "Westside Emergency Center"},
+            "confidence_score": 94.2,
+            "assumptions": ["Suburban population growth matches census predictions", "Budget limits hold"],
+            "limitations": ["Zoning permits are obtained within normal 90-day window"]
         }
 
     # 3. Intent: Widen road / flyover
@@ -185,7 +194,10 @@ def planning_assistant(
         )
         return {
             "reply": reply,
-            "suggested_action": {"type": "road_widening", "name": "Downtown Boulevard Expansion"}
+            "suggested_action": {"type": "road_widening", "name": "Downtown Boulevard Expansion"},
+            "confidence_score": 79.8,
+            "assumptions": ["Induced demand factor matches city baseline", "Commuter vehicle class split remains constant"],
+            "limitations": ["Ignores potential construction-phase traffic disruption (est 6 months)"]
         }
 
     # Default reply
@@ -199,5 +211,8 @@ def planning_assistant(
     )
     return {
         "reply": reply,
-        "suggested_action": None
+        "suggested_action": None,
+        "confidence_score": 99.0,
+        "assumptions": [],
+        "limitations": []
     }

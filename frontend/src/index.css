@@ -3,10 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Scroll containment ─────────────────────────────────────────────────────
+   * Locking html + body to 100% height forces all scrollable regions to live
+   * inside child containers. This prevents any component re-render or focus
+   * event from scrolling the outer page. */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     background-color: #090d16;
     color: #e2e8f0;
     font-family: 'Inter', sans-serif;
+    /* Prevent layout shift when scrollbar appears/disappears inside panels */
+    scrollbar-gutter: stable;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -46,10 +57,28 @@
   background: #2563eb;
 }
 
-/* Leaflet map styles */
+/* ── Map Containers — Wheel & Touch isolation ───────────────────────────────
+ * Without these, mouse-wheel on Leaflet/DeckGL scrolls the surrounding page
+ * on some browsers. `touch-action: none` is required for Leaflet on mobile
+ * to prevent page pan during map drag. `overscroll-behavior: none` blocks
+ * the elastic bounce from propagating up to the page scroll container. */
 .leaflet-container {
   background: #090d16 !important;
   font-family: 'Inter', sans-serif;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* DeckGL canvas isolation */
+canvas {
+  touch-action: none;
+}
+
+/* Map wrapper helper class — apply to the div wrapping Leaflet or DeckGL */
+.map-container-isolate {
+  touch-action: none;
+  overscroll-behavior: none;
+  overflow: hidden;
 }
 
 .leaflet-bar {
@@ -97,4 +126,19 @@
 
 .glow-effect:hover::before {
   opacity: 1;
+}
+
+/* Fade-in animation for expanded panels */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/* Scale-102 utility for hover card expansion */
+.scale-102 {
+  transform: scale(1.02);
 }

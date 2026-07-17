@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load root .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 class Settings:
     PROJECT_NAME: str = "MIRROR CITY"

@@ -15,6 +15,7 @@ class User(Base):
 
     scenarios = relationship("Scenario", back_populates="creator")
     audit_logs = relationship("AuditLog", back_populates="user")
+    incidents = relationship("Incident", back_populates="reporter")
 
 class Scenario(Base):
     __tablename__ = "scenarios"
@@ -66,3 +67,34 @@ class AuditLog(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="audit_logs")
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String, nullable=False)  # accident, pothole, flood, power_cut, crime, road_damage, fire, water_leak
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    location_geojson = Column(Text, nullable=False)  # GeoJSON string for position
+    status = Column(String, default="reported")  # reported, verified, resolved
+    reported_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    reporter = relationship("User", back_populates="incidents")
+
+class CityMemory(Base):
+    __tablename__ = "city_memory"
+
+    id = Column(Integer, primary_key=True, index=True)
+    domain = Column(String, nullable=False)  # traffic, flood, weather, economy, healthcare, etc.
+    event_type = Column(String, nullable=False)  # sensor_reading, observation, recommendation, collaboration
+    message = Column(Text, nullable=False)
+    data_json = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+class LiveMetric(Base):
+    __tablename__ = "live_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    metrics_json = Column(Text, nullable=False) # overall average congestion, air quality index, power load, flood level, crowd density

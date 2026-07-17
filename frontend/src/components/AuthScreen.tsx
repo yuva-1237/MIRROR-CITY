@@ -3,9 +3,10 @@ import { Mail, Lock, Shield, ArrowRight } from 'lucide-react';
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, role: string) => void;
+  sessionExpired?: boolean;
 }
 
-export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
+export default function AuthScreen({ onAuthSuccess, sessionExpired }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +19,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError('');
     setLoading(true);
 
-    const baseUrl = 'http://localhost:8000/api/auth';
+    const baseUrl = 'http://127.0.0.1:8000/api/auth';
     const endpoint = isLogin ? '/login' : '/register';
 
     try {
@@ -101,6 +102,16 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {sessionExpired && !error && (
+            <div className="p-3 bg-amber-950/40 border border-brand-neonOrange/30 text-amber-300 text-xs rounded-xl shadow-[0_0_15px_rgba(249,115,22,0.1)] flex items-start gap-2">
+              <span className="text-brand-neonOrange font-bold text-sm">🔐</span>
+              <div>
+                <strong className="block font-bold text-white mb-0.5">Session Expired</strong>
+                Your security credentials were reset or expired. Please sign in again.
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-red-950/50 border border-red-500/40 text-red-300 text-xs rounded-lg">
               ⚠️ {error}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeftRight, Check, Layers } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 interface ScenarioCompareProps {
   scenarios: any[];
@@ -21,16 +22,12 @@ export default function ScenarioCompare({ scenarios, authToken }: ScenarioCompar
     if (selectedIds.length === 0) return;
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/simulations/compare?ids=${selectedIds.join(',')}`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
+      const data = await apiFetch<any[]>(`/api/simulations/compare?ids=${selectedIds.join(',')}`, {
+        token: authToken
       });
-      if (!response.ok) throw new Error("Comparison query failed");
-      const data = await response.json();
       setComparisonData(data);
     } catch (err) {
-      console.error(err);
+      console.error('[ScenarioCompare] Compare failed:', err);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, FileText, Database, ShieldAlert, Check } from 'lucide-react';
+import { apiFetch, apiPost } from '../lib/api';
 
 interface AdminPanelProps {
   authToken: string;
@@ -32,18 +33,11 @@ export default function AdminPanel({ authToken }: AdminPanelProps) {
     setErrorMsg('');
     try {
       // Fetch users
-      const usersRes = await fetch('http://localhost:8000/api/admin/users', {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (!usersRes.ok) throw new Error("Failed to fetch user list. Ensure you have Admin privileges.");
-      const usersData = await usersRes.json();
+      const usersData = await apiFetch<User[]>('/api/admin/users', { token: authToken });
       setUsers(usersData);
 
       // Fetch logs
-      const logsRes = await fetch('http://localhost:8000/api/admin/logs', {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      const logsData = await logsRes.json();
+      const logsData = await apiFetch<AuditLog[]>('/api/admin/logs', { token: authToken });
       setLogs(logsData);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to load admin telemetry.");
@@ -60,15 +54,12 @@ export default function AdminPanel({ authToken }: AdminPanelProps) {
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      const response = await fetch(`http://localhost:8000/api/admin/users/${userId}/role`, {
+      await apiFetch(`/api/admin/users/${userId}/role`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ role: newRole })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+        token: authToken
       });
-      if (!response.ok) throw new Error("Failed to update user role");
       
       setSuccessMsg("User role updated successfully.");
       fetchData();
@@ -83,12 +74,7 @@ export default function AdminPanel({ authToken }: AdminPanelProps) {
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      const response = await fetch('http://localhost:8000/api/admin/seed', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (!response.ok) throw new Error("Reseeding failed");
-      const data = await response.json();
+      const data = await apiPost<any>('/api/admin/seed', {}, { token: authToken });
       setSuccessMsg(data.message || "System database re-seeded.");
       fetchData();
     } catch (err: any) {
