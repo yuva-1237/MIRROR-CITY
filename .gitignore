@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.spec
+venv/
+env/
+.venv/
+.env
+
+# SQLite database (runtime artifact)
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend build output & deps
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Vite / TypeScript cache
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage

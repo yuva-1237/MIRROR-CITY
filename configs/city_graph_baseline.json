@@ -1,0 +1,906 @@
+{
+    "nodes": [
+        {
+            "id": "node_0_0",
+            "name": "Industrial Node (0,0)",
+            "lat": 37.7624,
+            "lng": -122.4319,
+            "type": "industrial",
+            "population_density": 30,
+            "energy_demand": 75,
+            "pollution_level": 90
+        },
+        {
+            "id": "node_0_1",
+            "name": "Industrial Node (0,1)",
+            "lat": 37.7624,
+            "lng": -122.42689999999999,
+            "type": "industrial",
+            "population_density": 30,
+            "energy_demand": 75,
+            "pollution_level": 90
+        },
+        {
+            "id": "node_0_2",
+            "name": "Downtown Crossroads (0,2)",
+            "lat": 37.7624,
+            "lng": -122.4219,
+            "type": "commercial",
+            "population_density": 50,
+            "energy_demand": 60,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_0_3",
+            "name": "Downtown Crossroads (0,3)",
+            "lat": 37.7624,
+            "lng": -122.4169,
+            "type": "commercial",
+            "population_density": 50,
+            "energy_demand": 60,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_0_4",
+            "name": "Suburban Intersection (0,4)",
+            "lat": 37.7624,
+            "lng": -122.4119,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_0_5",
+            "name": "Suburban Intersection (0,5)",
+            "lat": 37.7624,
+            "lng": -122.4069,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_1_0",
+            "name": "Industrial Node (1,0)",
+            "lat": 37.7674,
+            "lng": -122.4319,
+            "type": "industrial",
+            "population_density": 30,
+            "energy_demand": 75,
+            "pollution_level": 90
+        },
+        {
+            "id": "node_1_1",
+            "name": "Academy Crossing (1,1)",
+            "lat": 37.7674,
+            "lng": -122.42689999999999,
+            "type": "school",
+            "population_density": 30,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_1_2",
+            "name": "Downtown Crossroads (1,2)",
+            "lat": 37.7674,
+            "lng": -122.4219,
+            "type": "commercial",
+            "population_density": 50,
+            "energy_demand": 60,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_1_3",
+            "name": "Suburban Intersection (1,3)",
+            "lat": 37.7674,
+            "lng": -122.4169,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_1_4",
+            "name": "Suburban Intersection (1,4)",
+            "lat": 37.7674,
+            "lng": -122.4119,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_1_5",
+            "name": "Suburban Intersection (1,5)",
+            "lat": 37.7674,
+            "lng": -122.4069,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_2_0",
+            "name": "Downtown Crossroads (2,0)",
+            "lat": 37.772400000000005,
+            "lng": -122.4319,
+            "type": "commercial",
+            "population_density": 50,
+            "energy_demand": 60,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_2_1",
+            "name": "Downtown Crossroads (2,1)",
+            "lat": 37.772400000000005,
+            "lng": -122.42689999999999,
+            "type": "commercial",
+            "population_density": 50,
+            "energy_demand": 60,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_2_2",
+            "name": "Medical Plaza (2,2)",
+            "lat": 37.772400000000005,
+            "lng": -122.4219,
+            "type": "hospital",
+            "population_density": 30,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_2_3",
+            "name": "Greenway Junction (2,3)",
+            "lat": 37.772400000000005,
+            "lng": -122.4169,
+            "type": "park",
+            "population_density": 30,
+            "energy_demand": 40,
+            "pollution_level": 40
+        },
+        {
+            "id": "node_2_4",
+            "name": "Suburban Intersection (2,4)",
+            "lat": 37.772400000000005,
+            "lng": -122.4119,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_2_5",
+            "name": "Suburban Intersection (2,5)",
+            "lat": 37.772400000000005,
+            "lng": -122.4069,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_3_0",
+            "name": "Downtown Crossroads (3,0)",
+            "lat": 37.7774,
+            "lng": -122.4319,
+            "type": "commercial",
+            "population_density": 50,
+            "energy_demand": 60,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_3_1",
+            "name": "Transit Hub Hub (3,1)",
+            "lat": 37.7774,
+            "lng": -122.42689999999999,
+            "type": "station",
+            "population_density": 30,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_3_2",
+            "name": "Greenway Junction (3,2)",
+            "lat": 37.7774,
+            "lng": -122.4219,
+            "type": "park",
+            "population_density": 30,
+            "energy_demand": 40,
+            "pollution_level": 40
+        },
+        {
+            "id": "node_3_3",
+            "name": "Suburban Intersection (3,3)",
+            "lat": 37.7774,
+            "lng": -122.4169,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_3_4",
+            "name": "Academy Crossing (3,4)",
+            "lat": 37.7774,
+            "lng": -122.4119,
+            "type": "school",
+            "population_density": 30,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_3_5",
+            "name": "Suburban Intersection (3,5)",
+            "lat": 37.7774,
+            "lng": -122.4069,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_4_0",
+            "name": "Suburban Intersection (4,0)",
+            "lat": 37.7824,
+            "lng": -122.4319,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_4_1",
+            "name": "Suburban Intersection (4,1)",
+            "lat": 37.7824,
+            "lng": -122.42689999999999,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_4_2",
+            "name": "Suburban Intersection (4,2)",
+            "lat": 37.7824,
+            "lng": -122.4219,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_4_3",
+            "name": "Suburban Intersection (4,3)",
+            "lat": 37.7824,
+            "lng": -122.4169,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_4_4",
+            "name": "Suburban Intersection (4,4)",
+            "lat": 37.7824,
+            "lng": -122.4119,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_4_5",
+            "name": "Industrial Node (4,5)",
+            "lat": 37.7824,
+            "lng": -122.4069,
+            "type": "industrial",
+            "population_density": 30,
+            "energy_demand": 75,
+            "pollution_level": 90
+        },
+        {
+            "id": "node_5_0",
+            "name": "Suburban Intersection (5,0)",
+            "lat": 37.787400000000005,
+            "lng": -122.4319,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_5_1",
+            "name": "Suburban Intersection (5,1)",
+            "lat": 37.787400000000005,
+            "lng": -122.42689999999999,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_5_2",
+            "name": "Suburban Intersection (5,2)",
+            "lat": 37.787400000000005,
+            "lng": -122.4219,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_5_3",
+            "name": "Suburban Intersection (5,3)",
+            "lat": 37.787400000000005,
+            "lng": -122.4169,
+            "type": "residential",
+            "population_density": 80,
+            "energy_demand": 40,
+            "pollution_level": 60
+        },
+        {
+            "id": "node_5_4",
+            "name": "Industrial Node (5,4)",
+            "lat": 37.787400000000005,
+            "lng": -122.4119,
+            "type": "industrial",
+            "population_density": 30,
+            "energy_demand": 75,
+            "pollution_level": 90
+        },
+        {
+            "id": "node_5_5",
+            "name": "Industrial Node (5,5)",
+            "lat": 37.787400000000005,
+            "lng": -122.4069,
+            "type": "industrial",
+            "population_density": 30,
+            "energy_demand": 75,
+            "pollution_level": 90
+        }
+    ],
+    "edges": [
+        {
+            "from_node": "node_0_0",
+            "to_node": "node_0_1",
+            "name": "East-West St 0",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_0_0",
+            "to_node": "node_1_0",
+            "name": "North-South Ave 0",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_0_1",
+            "to_node": "node_0_2",
+            "name": "East-West St 0",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_0_1",
+            "to_node": "node_1_1",
+            "name": "North-South Ave 1",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_0_2",
+            "to_node": "node_0_3",
+            "name": "East-West St 0",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_0_2",
+            "to_node": "node_1_2",
+            "name": "North-South Ave 2",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_0_3",
+            "to_node": "node_0_4",
+            "name": "East-West St 0",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_0_3",
+            "to_node": "node_1_3",
+            "name": "North-South Ave 3",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_0_4",
+            "to_node": "node_0_5",
+            "name": "East-West St 0",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_0_4",
+            "to_node": "node_1_4",
+            "name": "North-South Ave 4",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_0_5",
+            "to_node": "node_1_5",
+            "name": "North-South Ave 5",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_1_0",
+            "to_node": "node_1_1",
+            "name": "East-West St 1",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_1_0",
+            "to_node": "node_2_0",
+            "name": "North-South Ave 0",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_1_1",
+            "to_node": "node_1_2",
+            "name": "East-West St 1",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_1_1",
+            "to_node": "node_2_1",
+            "name": "North-South Ave 1",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_1_2",
+            "to_node": "node_1_3",
+            "name": "East-West St 1",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_1_2",
+            "to_node": "node_2_2",
+            "name": "North-South Ave 2",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_1_3",
+            "to_node": "node_1_4",
+            "name": "East-West St 1",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_1_3",
+            "to_node": "node_2_3",
+            "name": "North-South Ave 3",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_1_4",
+            "to_node": "node_1_5",
+            "name": "East-West St 1",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_1_4",
+            "to_node": "node_2_4",
+            "name": "North-South Ave 4",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_1_5",
+            "to_node": "node_2_5",
+            "name": "North-South Ave 5",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_2_0",
+            "to_node": "node_2_1",
+            "name": "East-West St 2",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_2_0",
+            "to_node": "node_3_0",
+            "name": "North-South Ave 0",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_2_1",
+            "to_node": "node_2_2",
+            "name": "East-West St 2",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_2_1",
+            "to_node": "node_3_1",
+            "name": "North-South Ave 1",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_2_2",
+            "to_node": "node_2_3",
+            "name": "East-West St 2",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_2_2",
+            "to_node": "node_3_2",
+            "name": "North-South Ave 2",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_2_3",
+            "to_node": "node_2_4",
+            "name": "East-West St 2",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_2_3",
+            "to_node": "node_3_3",
+            "name": "North-South Ave 3",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_2_4",
+            "to_node": "node_2_5",
+            "name": "East-West St 2",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_2_4",
+            "to_node": "node_3_4",
+            "name": "North-South Ave 4",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_2_5",
+            "to_node": "node_3_5",
+            "name": "North-South Ave 5",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_3_0",
+            "to_node": "node_3_1",
+            "name": "East-West St 3",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_3_0",
+            "to_node": "node_4_0",
+            "name": "North-South Ave 0",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_3_1",
+            "to_node": "node_3_2",
+            "name": "East-West St 3",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_3_1",
+            "to_node": "node_4_1",
+            "name": "North-South Ave 1",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_3_2",
+            "to_node": "node_3_3",
+            "name": "East-West St 3",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_3_2",
+            "to_node": "node_4_2",
+            "name": "North-South Ave 2",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_3_3",
+            "to_node": "node_3_4",
+            "name": "East-West St 3",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_3_3",
+            "to_node": "node_4_3",
+            "name": "North-South Ave 3",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_3_4",
+            "to_node": "node_3_5",
+            "name": "East-West St 3",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.3
+        },
+        {
+            "from_node": "node_3_4",
+            "to_node": "node_4_4",
+            "name": "North-South Ave 4",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_3_5",
+            "to_node": "node_4_5",
+            "name": "North-South Ave 5",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_4_0",
+            "to_node": "node_4_1",
+            "name": "East-West St 4",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_4_0",
+            "to_node": "node_5_0",
+            "name": "North-South Ave 0",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_4_1",
+            "to_node": "node_4_2",
+            "name": "East-West St 4",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_4_1",
+            "to_node": "node_5_1",
+            "name": "North-South Ave 1",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_4_2",
+            "to_node": "node_4_3",
+            "name": "East-West St 4",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_4_2",
+            "to_node": "node_5_2",
+            "name": "North-South Ave 2",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_4_3",
+            "to_node": "node_4_4",
+            "name": "East-West St 4",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_4_3",
+            "to_node": "node_5_3",
+            "name": "North-South Ave 3",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.25
+        },
+        {
+            "from_node": "node_4_4",
+            "to_node": "node_4_5",
+            "name": "East-West St 4",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_4_4",
+            "to_node": "node_5_4",
+            "name": "North-South Ave 4",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_4_5",
+            "to_node": "node_5_5",
+            "name": "North-South Ave 5",
+            "length_m": 550,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.12
+        },
+        {
+            "from_node": "node_5_0",
+            "to_node": "node_5_1",
+            "name": "East-West St 5",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_5_1",
+            "to_node": "node_5_2",
+            "name": "East-West St 5",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_5_2",
+            "to_node": "node_5_3",
+            "name": "East-West St 5",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_5_3",
+            "to_node": "node_5_4",
+            "name": "East-West St 5",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        },
+        {
+            "from_node": "node_5_4",
+            "to_node": "node_5_5",
+            "name": "East-West St 5",
+            "length_m": 520,
+            "speed_limit_kph": 50,
+            "lanes": 2,
+            "base_congestion": 0.1
+        }
+    ]
+}
