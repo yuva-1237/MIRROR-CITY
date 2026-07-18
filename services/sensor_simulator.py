@@ -3,8 +3,11 @@ import time
 import math
 import json
 import os
+import logging
 from typing import Dict, Any, List
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class SensorSimulator:
     def __init__(self):
@@ -26,7 +29,7 @@ class SensorSimulator:
                     self.nodes = data.get("nodes", [])
                     self.edges = data.get("edges", [])
             except Exception as e:
-                print(f"Error loading baseline in simulator: {e}")
+                logger.error(f"Error loading baseline in simulator: {e}")
 
     def init_transit_vehicles(self) -> List[Dict[str, Any]]:
         # Initialize 6 buses and 4 metros moving along edges

@@ -2,8 +2,11 @@ import urllib.request
 import urllib.parse
 import json
 import random
+import time
 import networkx as nx
 from typing import Dict, Any, List, Tuple
+from configs.config import settings
+
 
 # Pre-defined high-fidelity presets for common queries to ensure perfect offline/speedy demos
 PRESETS = {
@@ -109,12 +112,24 @@ PRESETS = {
 }
 
 class GeospatialService:
+    def __init__(self):
+        self._search_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+        self._last_request_time: float = 0.0
+
     def search_location(self, query: str) -> List[Dict[str, Any]]:
         """Resolves a text query into location options with geocoding, hierarchy, and timezone."""
         norm_query = query.strip().lower()
+
+        # 1. Check in-memory geocoding cache first
+        now = time.time()
+        if norm_query in self._search_cache:
+            cached_time, cached_results = self._search_cache[norm_query]
+            if now - cached_time < settings.GEOCODE_CACHE_TTL:
+                return cached_results
+
         results = []
 
-        # 1. Match against high-fidelity presets
+        # 2. Match against high-fidelity presets
         for key, preset in PRESETS.items():
             if key in norm_query or norm_query in key:
                 results.append({
@@ -131,9 +146,16 @@ class GeospatialService:
                 })
 
         if results:
+            self._search_cache[norm_query] = (time.time(), results)
             return results
 
-        # 2. Try Nominatim Geocoding API (with User-Agent)
+        # 3. Rate limiting check (Nominatim requires max 1 req/sec)
+        elapsed = now - self._last_request_time
+        if elapsed < 1.0:
+            time.sleep(1.0 - elapsed)
+        self._last_request_time = time.time()
+
+        # 4. Try Nominatim Geocoding API (with User-Agent)
         try:
             encoded_query = urllib.parse.quote(query)
             url = f"https://nominatim.openstreetmap.org/search?q={encoded_query}&format=json&addressdetails=1&limit=5"
@@ -178,11 +200,14 @@ class GeospatialService:
             # Silence exception, proceed to synthetic generation fallback
             pass
 
-        # 3. Heuristic / Synthetic Fallback generator if empty or offline
+        # 5. Heuristic / Synthetic Fallback generator if empty or offline
         if not results:
             results.append(self._generate_synthetic_metadata(query))
 
+        # Store in cache
+        self._search_cache[norm_query] = (time.time(), results)
         return results
+
 
     def _determine_location_type(self, osm_class: str, osm_type: str, lat: float, population: int) -> str:
         """Classifies the focus of the digital twin (Village, Town, City, Metro, Coastal, Mountain, Desert, Industrial)."""
@@ -217,17 +242,31 @@ class GeospatialService:
             return 15.0
 
     def _estimate_population(self, osm_class: str, osm_type: str, address: Dict[str, str]) -> int:
-        """Intelligently estimates population from administrative level tags."""
+        """
+        Deterministically estimates population from OSM administrative level tags.
+        Uses a conservative midpoint heuristic — no randomness so values are stable
+        across repeated requests for the same location.
+        """
+        # Check for explicit population tag first (sometimes present in OSM)
+        pop_tag = address.get("population")
+        if pop_tag:
+            try:
+                return int(pop_tag)
+            except (ValueError, TypeError):
+                pass
+
+        # Deterministic tier midpoints based on administrative type
         if "city" in address:
-            return random.randint(300000, 2000000)
+            return 650_000        # large city midpoint
         elif "town" in address:
-            return random.randint(30000, 250000)
+            return 85_000         # mid-size town midpoint
         elif "village" in address:
-            return random.randint(500, 10000)
-        
-        if osm_type == "administrative":
-            return random.randint(100000, 1000000)
-        return random.randint(2000, 50000)
+            return 3_500          # small village midpoint
+        elif "hamlet" in address or "locality" in address:
+            return 500
+        elif osm_type == "administrative":
+            return 250_000        # generic admin area midpoint
+        return 15_000             # unknown — conservative default
 
     def _fetch_elevation(self, lat: float, lng: float) -> float:
         """Gets physical elevation using Open-Meteo elevation API, with fallback."""
@@ -241,7 +280,7 @@ class GeospatialService:
                     return float(elevations[0])
         except Exception:
             pass
-        return float(random.randint(5, 120)) # heuristic fallback elevation
+        return 0.0  # Unknown elevation — honest fallback; do not randomize
 
     def _guess_timezone(self, lng: float) -> str:
         """Estimates timezone offset relative to Greenwich Meridian."""
@@ -250,48 +289,30 @@ class GeospatialService:
         return f"UTC{sign}{abs(offset)}"
 
     def _generate_synthetic_metadata(self, query: str) -> Dict[str, Any]:
-        """Creates high-fidelity mock metadata for any random query when offline."""
-        # Randomize mock coordinates within plausible global bounds
-        lat = round(random.uniform(-40.0, 60.0), 4)
-        lng = round(random.uniform(-120.0, 140.0), 4)
-        
-        # Detect focus tags in query name
-        q_lower = query.lower()
-        if "village" in q_lower or "settlement" in q_lower or "rural" in q_lower:
-            loc_type = "village"
-            population = random.randint(800, 5000)
-            area = random.uniform(1.5, 8.0)
-        elif "town" in q_lower or "nagar" in q_lower or "district" in q_lower:
-            loc_type = "town"
-            population = random.randint(25000, 120000)
-            area = random.uniform(10.0, 45.0)
-        elif "coast" in q_lower or "beach" in q_lower or "sea" in q_lower:
-            loc_type = "coastal"
-            population = random.randint(150000, 1500000)
-            area = random.uniform(30.0, 180.0)
-        elif "industrial" in q_lower or "factory" in q_lower or "port" in q_lower:
-            loc_type = "industrial"
-            population = random.randint(50000, 300000)
-            area = random.uniform(15.0, 70.0)
-        else:
-            loc_type = random.choice(["city", "town", "village", "mountain"])
-            population = random.randint(5000, 2000000)
-            area = random.uniform(5.0, 500.0)
+        """
+        Returns a structured 'not found' response when Nominatim is offline or
+        the query yields no results.
 
-        # Elevation based on types
-        elevation = float(random.randint(600, 2200)) if loc_type == "mountain" else float(random.randint(5, 150))
-
+        We intentionally do NOT generate random coordinates here — returning fake
+        coordinates for an unknown location would cause incorrect simulations and
+        mislead users. Instead, we surface the failure clearly so the UI can
+        show a helpful 'location not found' message.
+        """
         return {
-            "name": query.capitalize(),
-            "lat": lat,
-            "lng": lng,
-            "hierarchy": ["Global Twin", f"Region {lat:.0f}N", query.capitalize()],
-            "population": population,
-            "area_sq_km": round(area, 2),
-            "elevation": elevation,
-            "location_type": loc_type,
-            "timezone": self._guess_timezone(lng),
-            "source": "AI Generative Model (Offline Fallback)"
+            "name": query.strip().capitalize(),
+            "lat": None,
+            "lng": None,
+            "hierarchy": ["Unknown Location"],
+            "population": 0,
+            "area_sq_km": 0.0,
+            "elevation": 0.0,
+            "location_type": "unknown",
+            "timezone": "UTC+0",
+            "source": "Not Found",
+            "error": (
+                f"Location '{query}' could not be found. "
+                "Check the spelling, try a city name, or add a country/region for disambiguation."
+            )
         }
 
     def generate_city_graph(self, loc_type: str, lat: float, lng: float) -> Tuple[nx.Graph, List[Dict[str, Any]], Dict[str, Any]]:

@@ -2,7 +2,11 @@ import os
 import random
 import time
 import math
+import logging
 from typing import Dict, Any, Optional
+from configs.config import settings
+
+logger = logging.getLogger(__name__)
 
 class WeatherService:
     """
@@ -18,7 +22,8 @@ class WeatherService:
     """
 
     def __init__(self):
-        self.api_key = os.getenv("OPENWEATHER_API_KEY", "")
+        # Prefer settings over raw os.getenv so key aliases are resolved
+        self.api_key = settings.OPENWEATHER_API_KEY or os.getenv("OPENWEATHER_API_KEY", "")
         # Simulation state
         self.sim_time = 0.0
         self.is_raining = False
@@ -50,7 +55,7 @@ class WeatherService:
                 self._fail_count += 1
                 if self._fail_count >= self._MAX_FAILURES:
                     self._circuit_open = True
-                    print("[WeatherService] Circuit breaker OPEN — switching to cache/simulation")
+                    logger.warning("[WeatherService] Circuit breaker OPEN — switching to cache/simulation")
 
         # Tier 2: Redis / in-process cache (< 5 min old)
         if self._last_cache and (time.time() - self._last_cache_ts) < 300:

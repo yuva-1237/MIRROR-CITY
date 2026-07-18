@@ -6,6 +6,16 @@ import uuid
 # Add parent directory to path so database imports work
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("backend")
+logger.info("Starting Mirror City Backend...")
+
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -74,6 +84,7 @@ app.include_router(live_metrics_router, prefix=settings.API_V1_STR)
 app.include_router(geospatial_router, prefix=settings.API_V1_STR)
 
 import time
+from sqlalchemy import text
 from database.connection import SessionLocal
 from database.schema import User, Scenario
 
@@ -96,7 +107,7 @@ def health_check():
     db_status = "healthy"
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
     except Exception:
         db_status = "degraded"
@@ -119,7 +130,7 @@ def api_health_check():
     db_error = None
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         user_count = db.query(User).count()
         scenario_count = db.query(Scenario).count()
         db.close()

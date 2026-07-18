@@ -1,7 +1,10 @@
 import asyncio
 import json
 import datetime
+import logging
 from typing import Dict, Any, List
+
+logger = logging.getLogger(__name__)
 from database.connection import SessionLocal
 from database.schema import LiveMetric, MapElement
 from services.ws_manager import ws_manager
@@ -23,7 +26,7 @@ class CityClock:
         if not self.running:
             self.running = True
             self.task = asyncio.create_task(self.loop())
-            print("Mirror City v2 Clock Started!")
+            logger.info("Mirror City v2 Clock Started!")
 
     def stop(self):
         self.running = False
@@ -40,23 +43,21 @@ class CityClock:
                 rain_val = current_weather.get("rain_intensity", 0.0)
                 
                 # 2. Fetch active scenario elements from DB
-                db = SessionLocal()
                 active_elements = []
                 try:
-                    elements = db.query(MapElement).all()
-                    for elem in elements:
-                        active_elements.append({
-                            "type": elem.type,
-                            "name": elem.name,
-                            "location_geojson": elem.location_geojson,
-                            "radius": elem.radius,
-                            "capacity": elem.capacity,
-                            "cost": elem.cost
-                        })
+                    with SessionLocal() as db:
+                        elements = db.query(MapElement).all()
+                        for elem in elements:
+                            active_elements.append({
+                                "type": elem.type,
+                                "name": elem.name,
+                                "location_geojson": elem.location_geojson,
+                                "radius": elem.radius,
+                                "capacity": elem.capacity,
+                                "cost": elem.cost
+                            })
                 except Exception as db_err:
-                    print(f"Database error in clock loop: {db_err}")
-                finally:
-                    db.close()
+                    logger.error(f"Database error in clock loop: {db_err}")
                 
                 # 3. Run continuous simulation models (GNN + Flood + Crowd + Disaster)
                 sim_results = continuous_engine.run_tick(rain_val)
@@ -105,7 +106,7 @@ class CityClock:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Error in CityClock loop tick {self.tick_count}: {e}")
+                logger.error(f"Error in CityClock loop tick {self.tick_count}: {e}")
                 
             await asyncio.sleep(3.0) # Tick every 3 seconds
 
@@ -176,7 +177,6 @@ class CityClock:
 
     def save_metric_snapshot(self, telemetry: Dict[str, Any]):
         """Save snapshot of average metrics to database."""
-        db = SessionLocal()
         try:
             congestions = [t["congestion_percentage"] for t in telemetry["traffic"].values()]
             avg_congestion = sum(congestions) / len(congestions) if congestions else 0.0
@@ -205,13 +205,12 @@ class CityClock:
                 timestamp=datetime.datetime.utcnow(),
                 metrics_json=json.dumps(snapshot)
             )
-            db.add(metric)
-            db.commit()
+            with SessionLocal() as db:
+                db.add(metric)
+                db.commit()
         except Exception as e:
-            db.rollback()
-            print(f"Error saving metric snapshot: {e}")
-        finally:
-            db.close()
+            logger.error(f"Error saving metric snapshot: {e}")
+
 
 # Singleton clock instance
 city_clock = CityClock()

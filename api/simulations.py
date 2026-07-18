@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
+import logging
 
 from database.connection import get_db
 from database.schema import Scenario, MapElement, SimulationResult, User
@@ -10,6 +11,9 @@ from api.auth import get_current_user
 from simulation.engine import SimulationEngine
 from ai.agent_coordinator import AgentCoordinator
 from models.forecaster import TemporalForecaster
+from configs.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/simulations", tags=["simulations"])
 
@@ -137,82 +141,175 @@ def compare_scenarios(
 
     return comparison_results
 
+
+# ── Gemini AI Planning Assistant ─────────────────────────────────────────────
+
+SYSTEM_PROMPT = (
+    "You are the Mirror City AI Planning Assistant — an expert urban intelligence system "
+    "embedded in a real-time AI Digital Twin platform.\n\n"
+    "Your role:\n"
+    "- Analyse urban planning questions for a smart city digital twin\n"
+    "- Provide data-driven recommendations based on city simulation context\n"
+    "- Structure responses with bold headers, bullet points, and specific metrics\n"
+    "- When suggesting infrastructure placements, mention concrete trade-offs\n"
+    "- Always mention confidence level, key assumptions, and limitations\n"
+    "- Keep responses concise but insightful (3-5 paragraphs max)\n\n"
+    "Domain expertise: traffic engineering, urban planning, flood risk, air quality, "
+    "energy grids, public health, green infrastructure, smart mobility, city resilience.\n\n"
+    "Respond in Markdown format. Use emojis sparingly to highlight sections."
+)
+
+
+def _call_gemini(prompt: str, context: str) -> Optional[str]:
+    """Call Google Gemini 1.5 Flash. Returns text response or None on failure."""
+    if not settings.GEMINI_API_KEY:
+        return None
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=SYSTEM_PROMPT
+        )
+        full_prompt = f"{context}\n\n---\n\nUser Question: {prompt}"
+        response = model.generate_content(full_prompt)
+        return response.text
+    except ImportError:
+        logger.warning(
+            "google-generativeai not installed. "
+            "Run: pip install google-generativeai"
+        )
+        return None
+    except Exception as exc:
+        logger.warning(f"Gemini API call failed: {exc}")
+        return None
+
+
+def _build_context(scenario_id: Optional[int], db: Session) -> str:
+    """Build a rich city-state context string to inject into the AI prompt."""
+    lines = [
+        "## Mirror City Digital Twin - Current State Context",
+        f"- AI Provider: {settings.LLM_PROVIDER}",
+        "- Real-time agents: Traffic, Pollution, Healthcare, Energy, Flood, "
+          "Crowd, Emergency, Economy, Environment, Master Coordinator",
+        "- Data refresh rate: every 3 seconds via WebSocket streams",
+    ]
+    if scenario_id:
+        scen = db.query(Scenario).filter_by(id=scenario_id).first()
+        if scen:
+            lines.append(f"- Active Scenario: {scen.name} - {scen.description or 'No description'}")
+            lines.append(f"- Infrastructure Elements Placed: {len(scen.elements)}")
+            type_counts: Dict[str, int] = {}
+            for e in scen.elements:
+                type_counts[e.type] = type_counts.get(e.type, 0) + 1
+            lines.append(f"- Element Breakdown: {json.dumps(type_counts)}")
+            if scen.results:
+                metrics = json.loads(scen.results[0].metrics_json)
+                lines.append(f"- Latest Simulation Metrics:\n{json.dumps(metrics, indent=2)}")
+    return "\n".join(lines)
+
+
+def _keyword_fallback(prompt: str) -> AssistantResponse:
+    """
+    Deterministic fallback for common urban planning queries.
+    Used when Gemini API is unavailable. Clearly labeled as offline fallback.
+    """
+    p = prompt.lower()
+
+    if any(kw in p for kw in ["rainfall", "rain", "flood", "storm", "drainage"]):
+        return AssistantResponse(
+            reply=(
+                "**Flood & Disaster Agents Analysis** *(Offline Fallback - Gemini API unavailable)*\n\n"
+                "A 40% increase in precipitation creates significant surface runoff risk in low-lying sectors.\n\n"
+                "**Key Findings:**\n"
+                "- Localized drainage basins overflow, raising the Flood Risk Index from ~12 to ~48.\n"
+                "- Low-elevation roads face waterlogging, increasing emergency response times by 5-8 minutes.\n\n"
+                "**Recommendation:**\n"
+                "Place a **Green Space / Storm Retention Basin** in central coordinates. "
+                "Green soil retention absorbs up to 45% of peak precipitation runoff."
+            ),
+            suggested_action={"type": "green_space", "name": "Storm Runoff Retention Park"},
+            confidence_score=72.0,
+            assumptions=["Precipitation increase is uniform", "No upstream dam failure"],
+            limitations=["Offline fallback - connect Gemini API for personalised analysis"]
+        )
+
+    if any(kw in p for kw in ["hospital", "medical", "health", "clinic", "emergency room"]):
+        return AssistantResponse(
+            reply=(
+                "**Healthcare Agent Recommendation** *(Offline Fallback - Gemini API unavailable)*\n\n"
+                "Western suburban zones currently lack adequate emergency coverage.\n\n"
+                "**Optimal Placement:**\n"
+                "- A new healthcare center in the western grid increases city-wide coverage from ~85% to 100%.\n"
+                "- Average emergency travel times drop by ~50%.\n"
+                "- Estimated ROI: +18% within 5 years through anchored commercial development."
+            ),
+            suggested_action={"type": "hospital", "name": "Westside Emergency Center"},
+            confidence_score=78.0,
+            assumptions=["Population growth matches census projections"],
+            limitations=["Offline fallback - connect Gemini API for personalised analysis"]
+        )
+
+    if any(kw in p for kw in ["widen", "road", "flyover", "traffic", "congestion", "highway"]):
+        return AssistantResponse(
+            reply=(
+                "**Traffic & Pollution Agents Evaluation** *(Offline Fallback - Gemini API unavailable)*\n\n"
+                "Widening the central arterial corridor reduces bottleneck congestion by ~40%.\n\n"
+                "**Trade-off Analysis:**\n"
+                "- Commuter travel times drop by ~3.5 minutes on average.\n"
+                "- Expanded lanes induce demand: carbon emissions increase by +4.2 metric tons CO2/day.\n"
+                "- **Better Alternative:** A Metro Station achieves the same traffic relief but cuts carbon by 15%."
+            ),
+            suggested_action={"type": "road_widening", "name": "Downtown Boulevard Expansion"},
+            confidence_score=68.0,
+            assumptions=["Induced demand factor at baseline", "Vehicle class split constant"],
+            limitations=["Offline fallback - connect Gemini API for personalised analysis"]
+        )
+
+    return AssistantResponse(
+        reply=(
+            "**Mirror City AI Assistant** *(Offline Fallback - Gemini API unavailable)*\n\n"
+            "I can help analyse urban planning decisions. Try asking:\n"
+            "- *'What happens if rainfall increases by 40%?'* - Disaster Simulation\n"
+            "- *'Where is the best place to build a hospital?'* - Healthcare Optimization\n"
+            "- *'Should we widen the downtown roads?'* - Traffic vs Carbon Trade-offs\n\n"
+            "**Note:** To enable real AI-powered analysis, ensure `GEMINI_API_KEY` is set "
+            "in your `.env` and run `pip install google-generativeai`."
+        ),
+        suggested_action=None,
+        confidence_score=50.0,
+        assumptions=[],
+        limitations=["Offline fallback mode - Gemini API not available"]
+    )
+
+
 @router.post("/assistant", response_model=AssistantResponse)
 def planning_assistant(
     req: AssistantRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    prompt_lower = req.prompt.lower()
-    
-    # 1. Intent: Rainfall increase
-    if "rainfall" in prompt_lower or "rain" in prompt_lower or "flood" in prompt_lower:
-        reply = (
-            "🌧️ **Disaster & Weather Agents Analysis:**\n"
-            "An increase in precipitation by 40% creates significant surface runoff risk in Neo-Vidia's downtown commercial sectors.\n\n"
-            "**Key Findings:**\n"
-            "- Localized drainage basins will overflow, raising the Flood Risk Index from 12.4 to **48.2**.\n"
-            "- Roads in lower grid sectors (e.g. Node 2,2 and 3,2) will face waterlogging, increasing emergency response times by 6.2 minutes.\n\n"
-            "**Recommendation:**\n"
-            "Consider creating a **Green Space** (Dolores Greenway expansion) in the center-right coordinates. Green soil retention basins absorb up to 45% of peak precipitation runoff, keeping the risk index below 15.0."
-        )
-        return {
-            "reply": reply,
-            "suggested_action": {"type": "green_space", "name": "Storm Runoff Retention Park"},
-            "confidence_score": 88.5,
-            "assumptions": ["Precipitation increase occurs uniformly", "No sudden dam failure upstream"],
-            "limitations": ["Assumes Soil Saturation index holds baseline value", "Excludes micro-climatic wind tunnels"]
-        }
+    """
+    AI-powered urban planning assistant backed by Google Gemini 1.5 Flash.
 
-    # 2. Intent: Hospital placement
-    elif "hospital" in prompt_lower or "medical" in prompt_lower or "health" in prompt_lower:
-        reply = (
-            "🏥 **Healthcare & Economy Agents Recommendation:**\n"
-            "We have evaluated the city's healthcare coverage. Currently, the Western Suburban blocks (Node 4,0 to 5,2) are outside the 1.8km catchment radius of Saint Francis Hospital.\n\n"
-            "**Optimal Hospital Placement:**\n"
-            "- Placing a new healthcare center near **Node (4,1)** increases City-Wide Healthcare Coverage from 85% to **100.0%**.\n"
-            "- Average emergency travel times for residents drop from 8.4 mins to **4.2 mins**.\n"
-            "- Short-term construction costs will be $120M, but it generates an estimated ROI of +18.4% by anchoring nearby commercial developments."
-        )
-        return {
-            "reply": reply,
-            "suggested_action": {"type": "hospital", "name": "Westside Emergency Center"},
-            "confidence_score": 94.2,
-            "assumptions": ["Suburban population growth matches census predictions", "Budget limits hold"],
-            "limitations": ["Zoning permits are obtained within normal 90-day window"]
-        }
+    Injects full city-state context (active scenario, element breakdown, simulation
+    metrics, agent architecture) into every prompt so answers are grounded in the
+    live digital twin state. Falls back gracefully to labeled keyword responses
+    when the Gemini API is offline or unavailable.
+    """
+    if settings.LLM_PROVIDER == "gemini" and settings.GEMINI_API_KEY:
+        context = _build_context(req.scenario_id, db)
+        ai_text = _call_gemini(req.prompt, context)
+        if ai_text:
+            logger.info(f"Planning assistant served by Gemini AI (user={current_user.id})")
+            return AssistantResponse(
+                reply=ai_text,
+                suggested_action=None,
+                confidence_score=91.0,
+                assumptions=["Response generated by Gemini 1.5 Flash with live city context"],
+                limitations=["AI responses are advisory - verify against live simulation metrics"]
+            )
+        logger.warning("Gemini API call failed - falling back to keyword responses")
 
-    # 3. Intent: Widen road / flyover
-    elif "widen" in prompt_lower or "road" in prompt_lower or "flyover" in prompt_lower:
-        reply = (
-            "🚗 **Traffic & Pollution Agents Evaluation:**\n"
-            "Widening the central arterial corridor (East-West St 2) reduces bottleneck congestion by 40%.\n\n"
-            "**Trade-off Analysis:**\n"
-            "- Commuter travel times drop by **3.5 minutes** on average.\n"
-            "- However, the Pollution Agent warns that expanding road lanes encourages vehicle usage, increasing daily Carbon Footprints by **+4.2 metric tons CO2**.\n"
-            "- The Traffic Agent suggests adding a **Metro Station** instead of road widening, which achieves the same traffic relief but cuts carbon emissions by 15%."
-        )
-        return {
-            "reply": reply,
-            "suggested_action": {"type": "road_widening", "name": "Downtown Boulevard Expansion"},
-            "confidence_score": 79.8,
-            "assumptions": ["Induced demand factor matches city baseline", "Commuter vehicle class split remains constant"],
-            "limitations": ["Ignores potential construction-phase traffic disruption (est 6 months)"]
-        }
-
-    # Default reply
-    reply = (
-        "🤖 **Mirror City AI Assistant:**\n"
-        "I understand you are evaluating city parameters. You can ask me:\n"
-        "- *'What happens if rainfall increases by 40%?'* (Disaster Simulation)\n"
-        "- *'Where is the best place to build a hospital?'* (Healthcare Access Optimization)\n"
-        "- *'Should we widen the downtown roads?'* (Traffic vs Carbon Trade-offs)\n\n"
-        "Let me know which scenario we should plan next!"
-    )
-    return {
-        "reply": reply,
-        "suggested_action": None,
-        "confidence_score": 99.0,
-        "assumptions": [],
-        "limitations": []
-    }
+    logger.info(f"Planning assistant using keyword fallback (provider={settings.LLM_PROVIDER})")
+    return _keyword_fallback(req.prompt)

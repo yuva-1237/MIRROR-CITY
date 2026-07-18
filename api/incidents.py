@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import random
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
@@ -13,6 +14,8 @@ from api.auth import get_current_user, require_role
 from services.ws_manager import ws_manager
 from services.data_validator import data_validator
 from simulation.continuous_engine import continuous_engine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -36,15 +39,31 @@ class IncidentResponse(BaseModel):
         from_attributes = True
 
 
-async def simulate_ai_verification(incident_id: int, db_session_factory):
-    """Background task: run AI + sensor cross-verification, then broadcast result."""
-    await asyncio.sleep(4.0)   # Simulate async processing latency
+async def run_incident_verification(incident_id: int, db_session_factory):
+    """Background task: run real sensor cross-verification, determine status, and broadcast."""
+    await asyncio.sleep(1.0)   # Allow a brief moment for state propagation
 
     db = db_session_factory()
     try:
         incident = db.query(Incident).filter_by(id=incident_id).first()
         if incident:
-            incident.status = "verified"
+            lat, lng = 0.0, 0.0
+            try:
+                geo = json.loads(incident.location_geojson)
+                coords = geo.get("coordinates", [0.0, 0.0])
+                lng, lat = float(coords[0]), float(coords[1])
+            except Exception:
+                pass
+
+            current_telemetry = getattr(continuous_engine, "_last_telemetry", None)
+            verification = data_validator.cross_verify_incident(
+                incident.type, lat, lng, current_telemetry
+            )
+
+            if verification["corroborated"]:
+                incident.status = "verified"
+            else:
+                incident.status = "unverified"
             db.commit()
 
             await ws_manager.broadcast({
@@ -55,10 +74,11 @@ async def simulate_ai_verification(incident_id: int, db_session_factory):
                     "name":             incident.name,
                     "status":           incident.status,
                     "location_geojson": incident.location_geojson,
+                    "verification":     verification,
                 }
             })
     except Exception as e:
-        print(f"Error verifying incident in background: {e}")
+        logger.error(f"Error verifying incident in background: {e}")
     finally:
         db.close()
 
@@ -117,9 +137,7 @@ def report_incident(
     db.add(log)
     db.commit()
 
-    # --- Schedule background deep-verification ---------------------------
-    from database.connection import SessionLocal
-    background_tasks.add_task(simulate_ai_verification, incident.id, SessionLocal)
+    background_tasks.add_task(run_incident_verification, incident.id, SessionLocal)
 
     return {
         "id":                  incident.id,

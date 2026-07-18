@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mirror_city_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite_data:/app
+    environment:
+      - NODE_ENV=production
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - WEATHERAPI_API_KEY=${WEATHERAPI_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mirror_city_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  sqlite_data:
+
