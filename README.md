@@ -16,24 +16,25 @@ MIRROR CITY is an enterprise-grade Smart City Digital Twin platform. Built with 
 ## 📋 Table of Contents
 
 1. [Project Overview](#-project-overview)
-2. [Key Features](#-key-features)
-3. [System Architecture](#-system-architecture)
-4. [Folder Structure](#-folder-structure)
-5. [Technology Stack](#-technology-stack)
-6. [Installation](#-installation)
-7. [Configuration](#-configuration)
-8. [API Documentation](#-api-documentation)
-9. [AI Models & Ingestion](#-ai-models--ingestion)
-10. [Simulation Engine](#-simulation-engine)
-11. [Digital Twin & GIS](#-digital-twin--gis)
-12. [Real-Time WebSocket Features](#-real-time-websocket-features)
-13. [Performance Optimizations](#-performance-optimizations)
-14. [Security & Compliance](#-security--compliance)
-15. [Testing Suite](#-testing-suite)
-16. [Deployment & Scaling](#-deployment--scaling)
-17. [Project Roadmap](#-project-roadmap)
-18. [Contributing](#-contributing)
-19. [License & References](#-license--references)
+2. [Product Showcases & Screenshots](#-product-showcases--screenshots)
+3. [Key Features](#-key-features)
+4. [System Architecture](#-system-architecture)
+5. [Folder Structure](#-folder-structure)
+6. [Technology Stack](#-technology-stack)
+7. [Installation](#-installation)
+8. [Configuration](#-configuration)
+9. [API Documentation](#-api-documentation)
+10. [AI Models & Ingestion](#-ai-models--ingestion)
+11. [Simulation Engine](#-simulation-engine)
+12. [Digital Twin & GIS](#-digital-twin--gis)
+13. [Real-Time WebSocket Features](#-real-time-websocket-features)
+14. [Performance Optimizations](#-performance-optimizations)
+15. [Security & Compliance](#-security--compliance)
+16. [Testing Suite](#-testing-suite)
+17. [Deployment & Scaling](#-deployment--scaling)
+18. [Project Roadmap](#-project-roadmap)
+19. [Contributing](#-contributing)
+20. [License & References](#-license--references)
 
 ---
 
@@ -52,6 +53,24 @@ MIRROR CITY is a real-time, hybrid Digital Twin platform. It bridges physical ur
 * **Disaster Management Agencies**: To assess runoff risks during heavy rainfall.
 * **Government Officials**: To review scenario comparisons and export executive PDFs.
 * **Open-Source Contributors**: To plug in custom models for traffic or environment analysis.
+
+---
+
+## 📸 Product Showcases & Screenshots
+
+Here are real-time interface captures from the Mirror City operations control console:
+
+### 1. Operations CommandCenter (3D Digital Twin View)
+The high-fidelity deck.gl 3D dashboard visualizes real-time transit telemetry, building extrusion heights, road speed limits, and traffic flow levels overlaid with collaborative agent alerts.
+![Command Center 3D View](docs/images/dashboard_3d.png)
+
+### 2. Scenario Planner & Advisory Report
+Planners can draft structural modifications (metro additions, hospital expansions, road widening) and immediately inspect domain metrics alongside structured AI suggestions.
+![Scenario Planner](docs/images/scenario_planner.png)
+
+### 3. Telemetry Cockpit Dashboard
+Includes real-time health gauges, environmental charts, energy supply/load levels, and flood runoff timelines.
+![Telemetry Cockpit](docs/images/telemetry_cockpit.png)
 
 ---
 
