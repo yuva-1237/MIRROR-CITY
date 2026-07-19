@@ -44,12 +44,16 @@ app = FastAPI(
 )
 
 # CORS configuration
-origins = [
-    "http://localhost:5173",  # Vite default port
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",  # Alternative Next.js port
-    "http://127.0.0.1:3000",
-]
+origins_env = os.getenv("ALLOWED_ORIGINS")
+if origins_env:
+    origins = [x.strip() for x in origins_env.split(",") if x.strip()]
+else:
+    origins = [
+        "http://localhost:5173",  # Vite default port
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",  # Alternative Next.js port
+        "http://127.0.0.1:3000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,11 +70,53 @@ app.add_middleware(RateLimitMiddleware)
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         req_id = str(uuid.uuid4())[:8]
+        # Attach the request ID to request state so structured logger can read it
+        request.state.request_id = req_id
         response: Response = await call_next(request)
         response.headers["X-Request-ID"] = req_id
         return response
 
 app.add_middleware(RequestIdMiddleware)
+
+# --- Structured Logging middleware: logs requests, user, and execution time -----
+class StructuredLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        
+        # Try to get user identity if JWT present in Authorization header
+        user_id = "anonymous"
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                token = auth_header.split(" ")[1]
+                from configs.security import decode_access_token
+                payload = decode_access_token(token)
+                if payload:
+                    user_id = payload.get("sub", "unknown")
+            except Exception:
+                pass
+
+        req_id = getattr(request.state, "request_id", "unknown")
+
+        try:
+            response: Response = await call_next(request)
+            process_time = time.time() - start_time
+            logger.info(
+                f"Request: ID={req_id} User={user_id} Method={request.method} "
+                f"Path={request.url.path} Status={response.status_code} "
+                f"Time={process_time:.4f}s"
+            )
+            return response
+        except Exception as e:
+            process_time = time.time() - start_time
+            logger.error(
+                f"Unhandled Exception: ID={req_id} Method={request.method} Path={request.url.path} "
+                f"Error={str(e)} Time={process_time:.4f}s",
+                exc_info=True
+            )
+            raise e
+
+app.add_middleware(StructuredLoggingMiddleware)
 
 # Mount API Routers
 app.include_router(auth_router, prefix=settings.API_V1_STR)
@@ -102,32 +148,26 @@ def shutdown_event():
 
 @app.get("/")
 @app.get("/health")
+@app.get("/status")
+@app.get("/ready")
+@app.get("/live")
 def health_check():
-    # Simple top-level health probe
-    db_status = "healthy"
-    try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
-    except Exception:
-        db_status = "degraded"
-        
-    return {
-        "status": "healthy" if db_status == "healthy" else "degraded",
-        "project": settings.PROJECT_NAME,
-        "version": settings.VERSION,
-        "database": db_status,
-        "live_simulation": "active" if city_clock.running else "inactive",
-        "uptime_seconds": int(time.time() - START_TIME)
-    }
+    """Simple top-level health probe returning detailed status."""
+    return compile_detailed_health()
 
 @app.get("/api/health")
-def api_health_check():
-    # Detailed diagnostic health probe
+@app.get("/api/health/detailed")
+def api_health_detailed():
+    """Full per-subsystem health breakdown used by the SystemHealthPanel and external monitors."""
+    return compile_detailed_health()
+
+def compile_detailed_health() -> dict:
+    uptime = int(time.time() - START_TIME)
+
+    # 1. Database check
     db_status = "healthy"
-    user_count = 0
-    scenario_count = 0
     db_error = None
+    user_count, scenario_count = 0, 0
     try:
         db = SessionLocal()
         db.execute(text("SELECT 1"))
@@ -138,113 +178,89 @@ def api_health_check():
         db_status = "unreachable"
         db_error = str(e)
 
-    # Inspect AI coordinator agents
+    # 2. Redis check
+    redis_status = "not_configured"
+    redis_url = os.getenv("REDIS_URL") or os.getenv("REDIS_HOST")
+    if redis_url:
+        try:
+            import redis
+            r = redis.Redis.from_url(redis_url, socket_timeout=1.0) if "://" in redis_url else redis.Redis(host=redis_url, socket_timeout=1.0)
+            if r.ping():
+                redis_status = "healthy"
+            else:
+                redis_status = "unreachable"
+        except Exception as re:
+            redis_status = f"unreachable: {str(re)}"
+
+    # 3. AI Coordinator status
+    ai_status = "active" if city_clock.running else "inactive"
     agent_status = {}
-    try:
-        from services.city_clock import city_clock
-        if city_clock.coordinator and city_clock.coordinator.live_agents:
-            agent_status = {
-                k: "loaded" for k in city_clock.coordinator.live_agents.keys()
-            }
-    except Exception as ae:
-        agent_status = {"error": str(ae)}
-
-    return {
-        "status": "healthy" if db_status == "healthy" and not db_error else "unhealthy",
-        "project": settings.PROJECT_NAME,
-        "version": settings.VERSION,
-        "uptime_seconds": int(time.time() - START_TIME),
-        "components": {
-            "database": {
-                "status": db_status,
-                "users_registered": user_count,
-                "scenarios_loaded": scenario_count,
-                "error": db_error
-            },
-            "ai_coordinator": {
-                "status": "active" if city_clock.running else "inactive",
-                "agents": agent_status
-            },
-            "websocket_bus": {
-                "active_connections": len(ws_manager.active_connections)
-            }
-        }
-    }
-
-@app.get("/api/health/detailed")
-def api_health_detailed():
-    """Full per-subsystem health breakdown used by SystemHealthPanel in the UI."""
-    uptime = int(time.time() - START_TIME)
-
-    # Database
-    db_status = "healthy"
-    user_count, scenario_count, db_error = 0, 0, None
-    try:
-        db = SessionLocal()
-        from sqlalchemy import text
-        db.execute(text("SELECT 1"))
-        user_count     = db.query(User).count()
-        scenario_count = db.query(Scenario).count()
-        db.close()
-    except Exception as e:
-        db_status = "unreachable"
-        db_error  = str(e)
-
-    # AI agents
-    agent_status: dict = {}
-    anomaly_count = 0
     try:
         if city_clock.coordinator and city_clock.coordinator.live_agents:
             agent_status = {k: "active" for k in city_clock.coordinator.live_agents.keys()}
     except Exception as ae:
         agent_status = {"error": str(ae)}
 
-    # Data quality from last tick (if available)
-    weather_source = "unknown"
+    # 4. Connected AI Providers
+    ai_providers = {
+        "gemini": bool(settings.GEMINI_API_KEY.strip()) if settings.GEMINI_API_KEY else False,
+        "openai": bool(settings.OPENAI_API_KEY.strip()) if settings.OPENAI_API_KEY else False,
+        "anthropic": bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
+    }
+
+    # 5. Active services list
+    active_services = []
+    if city_clock.running:
+        active_services.append("city_clock")
+    if city_clock.simulator:
+        active_services.append("sensor_simulator")
     try:
         from services.weather_service import weather_service
-        weather_source = "live_api" if weather_service.api_key and not weather_service._circuit_open else "simulation"
+        if weather_service:
+            active_services.append("weather_service")
     except Exception:
         pass
+    active_services.append("rate_limiter")
+    active_services.append("request_id_middleware")
 
-    ws_count = len(ws_manager.active_connections)
-
-    overall = "healthy"
+    # Overall status
+    overall_status = "healthy"
     if db_status != "healthy":
-        overall = "degraded"
-    if not city_clock.running:
-        overall = "degraded"
+        overall_status = "degraded"
+    if ai_status != "active":
+        overall_status = "degraded"
 
     return {
-        "status":         overall,
+        "status": overall_status,
+        "project": settings.PROJECT_NAME,
+        "version": settings.VERSION,
         "uptime_seconds": uptime,
-        "uptime_human":   f"{uptime // 3600}h {(uptime % 3600) // 60}m {uptime % 60}s",
+        "uptime_human": f"{uptime // 3600}h {(uptime % 3600) // 60}m {uptime % 60}s",
         "components": {
+            "api": {
+                "status": "healthy",
+                "authentication": "configured" if settings.JWT_SECRET else "missing_secret"
+            },
             "database": {
-                "status":            db_status,
-                "users_registered":  user_count,
-                "scenarios_loaded":  scenario_count,
-                "error":             db_error,
+                "status": db_status,
+                "users_registered": user_count,
+                "scenarios_loaded": scenario_count,
+                "error": db_error
+            },
+            "redis": {
+                "status": redis_status
             },
             "ai_coordinator": {
-                "status": "active" if city_clock.running else "inactive",
+                "status": ai_status,
                 "agents": agent_status,
-                "tick":   city_clock.tick_count,
+                "tick": city_clock.tick_count
             },
+            "ai_providers": ai_providers,
+            "active_services": active_services,
             "websocket_bus": {
-                "status":             "active" if ws_count >= 0 else "inactive",
-                "active_connections": ws_count,
-            },
-            "weather_service": {
-                "status": weather_source,
-                "circuit_breaker": "open" if getattr(
-                    __import__('services.weather_service', fromlist=['weather_service']).weather_service,
-                    '_circuit_open', False
-                ) else "closed",
-            },
-            "rate_limiter": {
-                "status": "active",
-            },
+                "status": "active" if len(ws_manager.active_connections) >= 0 else "inactive",
+                "active_connections": len(ws_manager.active_connections)
+            }
         }
     }
 

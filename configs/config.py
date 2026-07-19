@@ -24,6 +24,7 @@ class Settings:
     # Default to 'gemini' when a key is present, 'mock' as safe offline fallback
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     LLM_PROVIDER: str = os.getenv(
         "LLM_PROVIDER",
         "gemini" if os.getenv("GEMINI_API_KEY", "") else "mock"
@@ -45,3 +46,29 @@ class Settings:
     DEFAULT_CAPACITY: float = 100.0  # vehicle capacity per road segment
 
 settings = Settings()
+
+# Validation of required environment variables to fail fast on startup
+def validate_settings(s: Settings):
+    # Check LLM provider settings
+    if s.LLM_PROVIDER == "gemini" and not s.GEMINI_API_KEY.strip():
+        raise ValueError(
+            "CRITICAL CONFIG ERROR: LLM_PROVIDER is set to 'gemini' but GEMINI_API_KEY is empty. "
+            "Please configure GEMINI_API_KEY in your .env file or environment."
+        )
+    if s.LLM_PROVIDER == "openai" and not s.OPENAI_API_KEY.strip():
+        raise ValueError(
+            "CRITICAL CONFIG ERROR: LLM_PROVIDER is set to 'openai' but OPENAI_API_KEY is empty. "
+            "Please configure OPENAI_API_KEY in your .env file or environment."
+        )
+        
+    # Check JWT security settings in production
+    node_env = os.getenv("NODE_ENV", "development").lower()
+    if node_env == "production" and s.JWT_SECRET == "super-secret-key-for-mirror-city-12345":
+        raise ValueError(
+            "CRITICAL SECURITY ERROR: The application is running in production mode, "
+            "but the JWT_SECRET is set to the default development secret. "
+            "You MUST configure a secure, unique JWT_SECRET in your production environment."
+        )
+
+validate_settings(settings)
+

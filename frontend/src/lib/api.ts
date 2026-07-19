@@ -140,8 +140,15 @@ export interface ApiFetchOptions extends Omit<RequestInit, 'signal'> {
   token?: string | null;
 }
 
+let _consecutiveFailures = 0;
+let _circuitBreakerOpen = false;
+let _lastFailureTime = 0;
+const CIRCUIT_BREAKER_LIMIT = 5;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 15000;
+
 /**
  * apiFetch — typed, error-aware wrapper around the browser Fetch API.
+ * Includes automatic retry on 5xx/network errors and a client-side circuit breaker.
  *
  * @param path   URL path relative to API_BASE_URL (e.g. '/api/simulations/assistant')
  * @param options  Standard RequestInit + Mirror City extensions
@@ -160,6 +167,23 @@ export async function apiFetch<T = unknown>(
     ...fetchOptions
   } = options;
 
+  // 1. Check Circuit Breaker
+  if (_circuitBreakerOpen) {
+    const elapsed = Date.now() - _lastFailureTime;
+    if (elapsed < CIRCUIT_BREAKER_COOLDOWN_MS) {
+      throw new ApiError(
+        'Server connection suspended (Circuit Breaker Tripped).',
+        0,
+        'CIRCUIT_BREAKER_OPEN',
+        `The frontend has temporarily stopped sending requests because the backend server is unreachable. ` +
+        `Retrying automatically in ${Math.ceil((CIRCUIT_BREAKER_COOLDOWN_MS - elapsed) / 1000)}s.`
+      );
+    } else {
+      _circuitBreakerOpen = false;
+      _consecutiveFailures = 0;
+    }
+  }
+
   const url = `${baseUrl}${path}`;
   const authToken = token !== undefined ? token : localStorage.getItem('token');
 
@@ -169,93 +193,113 @@ export async function apiFetch<T = unknown>(
     headers.set('Authorization', `Bearer ${authToken}`);
   }
 
-  // Timeout controller
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
   const startMs = Date.now();
-  let status = 0;
+  let attempt = 0;
+  const maxAttempts = 3;
+  let lastError: any = null;
 
-  try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-      signal: controller.signal,
-    });
+  while (attempt < maxAttempts) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
-    status = response.status;
-    const elapsedMs = Date.now() - startMs;
-
-    // Structured log (non-sensitive)
-    console.debug(
-      `[API] ${fetchOptions.method ?? 'GET'} ${path} → ${status} (${elapsedMs}ms)`
-    );
-
-    if (response.ok) {
-      // Parse JSON body; handle empty responses (204 No Content)
-      if (response.status === 204) return undefined as unknown as T;
-      return (await response.json()) as T;
-    }
-
-    // Attempt to read server error detail
-    let serverDetail: string | undefined;
     try {
-      const errBody = await response.json();
-      serverDetail = errBody?.detail ?? errBody?.message;
-    } catch {
-      /* ignore */
-    }
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        signal: controller.signal,
+      });
 
-    const apiErr = mapStatusToError(status, serverDetail);
+      window.clearTimeout(timeoutId);
+      const status = response.status;
+      const elapsedMs = Date.now() - startMs;
 
-    // Handle 401 globally — clear auth and notify registered handler
-    if (status === 401) {
-      clearAuthState();
-      _on401Callback?.();
-    }
-
-    console.error(
-      `[API] ${fetchOptions.method ?? 'GET'} ${path} → ${status} "${apiErr.message}"`,
-      { code: apiErr.code, suggestion: apiErr.suggestion }
-    );
-
-    throw apiErr;
-  } catch (err: unknown) {
-    clearTimeout(timeoutId);
-
-    if (err instanceof ApiError) throw err;
-
-    // AbortError = timeout
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new ApiError(
-        `Request timed out after ${timeoutMs / 1000}s.`,
-        0,
-        'TIMEOUT',
-        `The AI Coordinator did not respond within ${timeoutMs / 1000} seconds. ` +
-          'Check if the backend is under heavy load.'
+      // Structured log (non-sensitive)
+      console.debug(
+        `[API] ${fetchOptions.method ?? 'GET'} ${path} → ${status} (${elapsedMs}ms)`
       );
-    }
 
-    // TypeError: Failed to fetch → network unreachable
-    if (err instanceof TypeError) {
-      throw new ApiError(
-        'Cannot reach the backend server.',
-        0,
-        'NETWORK_ERROR',
-        `Ensure the FastAPI server is running at ${API_BASE_URL} and there are no firewall or CORS issues.`
+      // Request succeeded — reset failure counters
+      _consecutiveFailures = 0;
+      _circuitBreakerOpen = false;
+
+      if (response.ok) {
+        if (response.status === 204) return undefined as unknown as T;
+        return (await response.json()) as T;
+      }
+
+      // Attempt to read server error detail
+      let serverDetail: string | undefined;
+      try {
+        const errBody = await response.json();
+        serverDetail = errBody?.detail ?? errBody?.message;
+      } catch {
+        /* ignore */
+      }
+
+      const apiErr = mapStatusToError(status, serverDetail);
+
+      // Handle 401 globally — clear auth and notify registered handler
+      if (status === 401) {
+        clearAuthState();
+        _on401Callback?.();
+      }
+
+      console.error(
+        `[API] ${fetchOptions.method ?? 'GET'} ${path} → ${status} "${apiErr.message}"`,
+        { code: apiErr.code, suggestion: apiErr.suggestion }
       );
+
+      // Don't retry on 4xx client errors
+      if (status < 500) {
+        throw apiErr;
+      }
+
+      lastError = apiErr;
+    } catch (err: unknown) {
+      window.clearTimeout(timeoutId);
+
+      if (err instanceof ApiError) {
+        if (err.status > 0 && err.status < 500) {
+          throw err; // fail fast on client errors
+        }
+        lastError = err;
+      } else if (err instanceof Error && err.name === 'AbortError') {
+        lastError = new ApiError(
+          `Request timed out after ${timeoutMs / 1000}s.`,
+          0,
+          'TIMEOUT',
+          `The AI Coordinator did not respond within ${timeoutMs / 1000} seconds. ` +
+            'Check if the backend is under heavy load.'
+        );
+      } else if (err instanceof TypeError) {
+        lastError = new ApiError(
+          'Cannot reach the backend server.',
+          0,
+          'NETWORK_ERROR',
+          `Ensure the FastAPI server is running at ${API_BASE_URL} and there are no firewall or CORS issues.`
+        );
+      } else {
+        lastError = err;
+      }
     }
 
-    throw new ApiError(
-      'An unexpected client-side error occurred.',
-      0,
-      'CLIENT_ERROR',
-      'Check the browser console for more details.'
-    );
-  } finally {
-    clearTimeout(timeoutId);
+    attempt++;
+    if (attempt < maxAttempts) {
+      const delay = 500 * Math.pow(2, attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
+
+  // All retry attempts failed — increment failures
+  _consecutiveFailures++;
+  if (_consecutiveFailures >= CIRCUIT_BREAKER_LIMIT) {
+    _circuitBreakerOpen = true;
+    _lastFailureTime = Date.now();
+  }
+
+  throw lastError;
 }
+
 
 // ── Convenience helpers ──────────────────────────────────────────────────────
 

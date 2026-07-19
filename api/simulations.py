@@ -168,7 +168,7 @@ def _call_gemini(prompt: str, context: str) -> Optional[str]:
         import google.generativeai as genai
         genai.configure(api_key=settings.GEMINI_API_KEY)
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name=settings.GEMINI_MODEL,
             system_instruction=SYSTEM_PROMPT
         )
         full_prompt = f"{context}\n\n---\n\nUser Question: {prompt}"
