@@ -316,7 +316,14 @@ cp .env.example .env
 ```
 Open `.env` and configure:
 * `GEMINI_API_KEY`: Required for Gemini Planning Assistant.
+* `GEMINI_MODEL`: (Optional) Custom Gemini model to use (defaults to `gemini-2.5-flash`).
 * `OPENWEATHER_API_KEY`: Required for real-time weather query sync.
+
+#### Default Access Credentials
+Use the default administrator login to access all clearance panels:
+* **Role**: `Administrator`
+* **Username**: `admin@mirrorcity.gov`
+* **Password**: `password123`
 
 #### 2. Backend Installation
 ```bash
@@ -326,7 +333,7 @@ pip install -r requirements.txt
 # Seed SQLite database (creates default users, scenarios, and spatial tables)
 python database/seed.py
 
-# Launch server
+# Launch server (runs FastAPI on port 8000)
 python backend/main.py
 ```
 
@@ -348,6 +355,7 @@ The application is configured using Pydantic Settings in `configs/config.py`. Im
 | `NODE_ENV` | `development` | Switches logging formats and debug overlays |
 | `LLM_PROVIDER` | `gemini` (if key set, else `mock`) | Toggle between real Gemini API calls and offline mocks |
 | `GEMINI_API_KEY` | `""` | Google AI studio API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | The specific Google Gemini model to execute |
 | `OPENWEATHER_API_KEY` | `""` | OpenWeatherMap API key |
 | `GEOCODE_CACHE_TTL` | `600` | LRU Cache expiration time for Nominatim results (seconds) |
 | `JWT_SECRET` | `super-secret-key...` | Cryptographic signature for authorization tokens |
