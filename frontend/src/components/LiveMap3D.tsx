@@ -3,6 +3,8 @@ import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer, PathLayer, PolygonLayer } from '@deck.gl/layers';
 import { Map } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { FlyToInterpolator } from '@deck.gl/core';
+import { useLocationStore } from '../store/locationStore';
 
 interface LiveMap3DProps {
   telemetry: any;
@@ -15,10 +17,13 @@ interface LiveMap3DProps {
 export default function LiveMap3D({ telemetry, onSelectCoordinates, activeCity, buildings, graph }: LiveMap3DProps) {
   if (!telemetry) return null;
 
-  // Dynamic viewport — re-derives when activeCity changes
-  const centerLng = activeCity?.lng ?? -122.4194;
-  const centerLat = activeCity?.lat ?? 37.7749;
-  const locType   = activeCity?.location_type ?? 'city';
+  const { activeLocation } = useLocationStore();
+  const currentCity = activeCity || activeLocation;
+
+  // Dynamic viewport — re-derives when currentCity changes
+  const centerLng = currentCity?.lng ?? -122.4194;
+  const centerLat = currentCity?.lat ?? 37.7749;
+  const locType   = currentCity?.location_type ?? 'city';
   const zoomByType: Record<string, number> = {
     village: 13,
     town: 12.5,
@@ -30,7 +35,7 @@ export default function LiveMap3D({ telemetry, onSelectCoordinates, activeCity, 
     industrial: 12,
   };
 
-  const [viewState, setViewState] = useState({
+  const [viewState, setViewState] = useState<any>({
     longitude: centerLng,
     latitude: centerLat,
     zoom: zoomByType[locType] ?? 13,
@@ -40,17 +45,19 @@ export default function LiveMap3D({ telemetry, onSelectCoordinates, activeCity, 
     minZoom: 9,
   });
 
-  // Fly to new city when activeCity changes
+  // Fly to new city when currentCity changes
   useEffect(() => {
-    if (activeCity?.lat && activeCity?.lng) {
-      setViewState(vs => ({
+    if (currentCity?.lat && currentCity?.lng) {
+      setViewState((vs: any) => ({
         ...vs,
-        longitude: activeCity.lng,
-        latitude: activeCity.lat,
-        zoom: zoomByType[activeCity.location_type ?? 'city'] ?? 13,
+        longitude: currentCity.lng,
+        latitude: currentCity.lat,
+        zoom: zoomByType[currentCity.location_type ?? 'city'] ?? 13,
+        transitionDuration: 1500,
+        transitionInterpolator: new FlyToInterpolator({ speed: 1.5 })
       }));
     }
-  }, [activeCity?.lat, activeCity?.lng, activeCity?.location_type]);
+  }, [currentCity?.lat, currentCity?.lng, currentCity?.location_type]);
 
   // ── 1. Transit vehicles ──────────────────────────────────────────────────
   const vehicles = (telemetry.transit || []).map((v: any) => ({

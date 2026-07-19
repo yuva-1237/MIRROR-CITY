@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { X, Activity, Eye, EyeOff } from 'lucide-react';
+import { useLocationStore } from '../store/locationStore';
+
 
 interface Element {
   id?: number;
@@ -65,7 +67,7 @@ const getMarkerIcon = (type: string) => {
 };
 
 export default function MapPanel({
-  elements,
+  elements = [],
   onAddElement,
   onRemoveElement,
   selectedTool,
@@ -75,36 +77,45 @@ export default function MapPanel({
   activeCity,
   graph
 }: MapPanelProps) {
+  const { activeLocation } = useLocationStore();
+  const currentCity = activeCity || activeLocation;
+
   const [showOverlays, setShowOverlays] = useState(true);
   const [gridNodes, setGridNodes] = useState<any[]>([]);
   const [gridEdges, setGridEdges] = useState<any[]>([]);
 
-  // Helper component to re-center Leaflet dynamically.
-  // IMPORTANT: we use primitive lat/lng (not an array) as deps — arrays create a
-  // new reference on every render, causing setView to fire on every single render
-  // and snapping the map back whenever the user tries to pan manually.
-  function ChangeView({ lat, lng }: { lat: number; lng: number }) {
+  // Helper component to animated fly-to Leaflet dynamically
+  function FlyToLocation({ lat, lng, locationType }: { lat: number; lng: number; locationType?: string }) {
     const map = useMap();
     useEffect(() => {
-      map.setView([lat, lng], map.getZoom());
-    }, [lat, lng]);
+      const zoom = locationType === 'village' ? 13 : locationType === 'metro' ? 11 : 12;
+      map.flyTo([lat, lng], zoom, {
+        animate: true,
+        duration: 1.5
+      });
+    }, [lat, lng, locationType]);
     return null;
   }
 
   // Generate grid coordinates centered dynamically on the active city.
-  // When the user selects a new city (activeCity changes), this effect re-runs
-  // immediately, regenerating the grid at the searched city's coordinates —
-  // even before the WebSocket delivers the real backend graph (~3 s delay).
+  // When the user selects a new city, this effect re-runs immediately.
+  // Checks if the incoming graph is actually for the current location; if not, falls back to synthetic grid.
   useEffect(() => {
-    if (graph && graph.nodes && graph.edges) {
+    const hasValidGraph = () => {
+      if (!graph || !graph.nodes || graph.nodes.length === 0 || !currentCity) return false;
+      const firstNode = graph.nodes[0];
+      const dist = Math.abs(firstNode.lat - currentCity.lat) + Math.abs(firstNode.lng - currentCity.lng);
+      return dist < 0.05; // ~5km range check to avoid displaying a stale city's graph
+    };
+
+    if (hasValidGraph()) {
       setGridNodes(graph.nodes);
       setGridEdges(graph.edges);
     } else {
       const nodes: any[] = [];
       const edges: any[] = [];
-      // Use activeCity if available; fall back to San Francisco only as last resort
-      const centerLat = activeCity?.lat ?? 37.7749;
-      const centerLng = activeCity?.lng ?? -122.4194;
+      const centerLat = currentCity?.lat ?? 37.7749;
+      const centerLng = currentCity?.lng ?? -122.4194;
       const coordSpacing = 0.005;
 
       for (let r = 0; r < 6; r++) {
@@ -143,8 +154,7 @@ export default function MapPanel({
       setGridNodes(nodes);
       setGridEdges(edges);
     }
-  // Re-run whenever the graph changes OR when the active city's coordinates change
-  }, [graph, activeCity?.lat, activeCity?.lng]);
+  }, [graph, currentCity?.lat, currentCity?.lng]);
 
   // Map Click handler component
   function MapEvents() {
@@ -215,19 +225,19 @@ export default function MapPanel({
       {/* Map Container */}
       <MapContainer
         center={
-          activeCity?.lat && activeCity?.lng
-            ? [activeCity.lat, activeCity.lng]
+          currentCity?.lat && currentCity?.lng
+            ? [currentCity.lat, currentCity.lng]
             : [37.7749, -122.4194]
         }
-        zoom={activeCity ? (activeCity.location_type === 'village' ? 13 : activeCity.location_type === 'metro' ? 11 : 12) : 14}
+        zoom={currentCity ? (currentCity.location_type === 'village' ? 13 : currentCity.location_type === 'metro' ? 11 : 12) : 14}
         zoomControl={true}
         scrollWheelZoom={true}
         className="w-full h-full"
       >
         <MapEvents />
-        {/* Dynamically re-center on activeCity change — uses primitives to avoid re-center loop */}
-        {activeCity?.lat && activeCity?.lng && (
-          <ChangeView lat={activeCity.lat} lng={activeCity.lng} />
+        {/* Dynamically re-center and animate fly-to on currentCity change */}
+        {currentCity?.lat && currentCity?.lng && (
+          <FlyToLocation lat={currentCity.lat} lng={currentCity.lng} locationType={currentCity.location_type} />
         )}
         {/* CartoDB Dark Matter base tile layer */}
         <TileLayer

@@ -12,6 +12,8 @@ import RoleDashboard from './components/RoleDashboard';
 import SystemHealthPanel from './components/SystemHealthPanel';
 import { useCityStream } from './hooks/useCityStream';
 import CommandCenter from './components/CommandCenter';
+import { useLocationStore } from './store/locationStore';
+
 
 interface Scenario {
   id: number;
@@ -25,8 +27,15 @@ interface Scenario {
 
 export default function App() {
   const { data: streamData, connected: streamConnected, retryCount } = useCityStream();
+  const { activeLocation, initActiveLocation } = useLocationStore();
 
   const [token, setToken] = useState<string>(localStorage.getItem('token') || '');
+
+  useEffect(() => {
+    if (token) {
+      initActiveLocation(token);
+    }
+  }, [token, initActiveLocation]);
   const [role, setRole] = useState<string>(localStorage.getItem('role') || '');
   const [roleOverride, setRoleOverride] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'live_twin' | 'dashboard' | 'compare' | 'admin' | 'health'>('live_twin');
@@ -356,7 +365,7 @@ export default function App() {
                   selectedTool={selectedTool}
                   setSelectedTool={setSelectedTool}
                   trafficData={forecast}
-                  activeCity={streamData?.active_city}
+                  activeCity={streamData?.active_city || activeLocation}
                   graph={streamData?.city_graph}
                 />
               </div>

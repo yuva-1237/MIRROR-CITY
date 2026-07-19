@@ -39,8 +39,8 @@ def test_unknown_location_fallback():
     results = geospatial_service.search_location("nonexistentplace12345")
     assert len(results) == 1
     match = results[0]
-    assert match["lat"] is None
-    assert match["lng"] is None
+    assert match["lat"] == 0.0
+    assert match["lng"] == 0.0
     assert match["location_type"] == "unknown"
     assert match["source"] == "Not Found"
     assert "error" in match

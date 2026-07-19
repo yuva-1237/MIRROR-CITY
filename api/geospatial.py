@@ -23,14 +23,29 @@ class LoadLocationRequest(BaseModel):
     area_sq_km: float
     elevation: float
     timezone: str
-    datasets: Dict[str, Any]
+    datasets: Optional[Dict[str, Any]] = None
 
 @router.get("/search")
 def search_location(query: str, current_user: User = Depends(get_current_user)):
     """Search for any village, town, city, or district globally."""
-    if not query.strip():
+    clean_query = query.strip()
+    if not clean_query:
         raise HTTPException(status_code=400, detail="Search query cannot be empty")
-    return geospatial_service.search_location(query)
+    if len(clean_query) > 200:
+        raise HTTPException(status_code=400, detail="Search query is too long (max 200 characters)")
+    
+    results = geospatial_service.search_location(clean_query)
+    
+    # If the only result returned is the synthetic not found fallback, or empty
+    if not results or (len(results) == 1 and results[0].get("source") == "Not Found"):
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "results": [],
+                "message": f"No locations found for '{clean_query}'. Try checking the spelling or adding a country name."
+            }
+        )
+    return results
 
 @router.post("/load")
 def load_digital_twin(req: LoadLocationRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

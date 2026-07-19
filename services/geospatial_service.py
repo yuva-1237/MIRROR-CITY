@@ -116,6 +116,21 @@ class GeospatialService:
         self._search_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._last_request_time: float = 0.0
 
+    def _get_deterministic_int(self, seed: str, min_val: int, max_val: int) -> int:
+        import hashlib
+        h = int(hashlib.md5(seed.encode()).hexdigest(), 16)
+        return min_val + (h % (max_val - min_val + 1))
+
+    def _get_deterministic_float(self, seed: str, min_val: float, max_val: float) -> float:
+        import hashlib
+        h = int(hashlib.md5(seed.encode()).hexdigest(), 16)
+        return min_val + (h % 100000) / 100000.0 * (max_val - min_val)
+
+    def _get_deterministic_choice(self, seed: str, choices: list) -> Any:
+        import hashlib
+        h = int(hashlib.md5(seed.encode()).hexdigest(), 16)
+        return choices[h % len(choices)]
+
     def search_location(self, query: str) -> List[Dict[str, Any]]:
         """Resolves a text query into location options with geocoding, hierarchy, and timezone."""
         norm_query = query.strip().lower()
@@ -132,17 +147,21 @@ class GeospatialService:
         # 2. Match against high-fidelity presets
         for key, preset in PRESETS.items():
             if key in norm_query or norm_query in key:
+                lat = preset["lat"]
+                lng = preset["lng"]
                 results.append({
                     "name": preset["name"],
-                    "lat": preset["lat"],
-                    "lng": preset["lng"],
+                    "lat": lat,
+                    "lng": lng,
                     "hierarchy": preset["hierarchy"],
                     "population": preset["population"],
                     "area_sq_km": preset["area_sq_km"],
                     "elevation": preset["elevation"],
                     "location_type": preset["location_type"],
                     "timezone": preset["timezone"],
-                    "source": "Local Baseline Database"
+                    "source": "Local Baseline Database",
+                    "confidence": "preset",
+                    "bounding_box": [lat - 0.05, lat + 0.05, lng - 0.05, lng + 0.05]
                 })
 
         if results:
@@ -184,17 +203,25 @@ class GeospatialService:
                     pop_est = self._estimate_population(osm_class, osm_type, addr)
                     location_type = self._determine_location_type(osm_class, osm_type, lat, pop_est)
 
+                    bbox_raw = item.get("boundingbox", [])
+                    if len(bbox_raw) == 4:
+                        bounding_box = [float(bbox_raw[0]), float(bbox_raw[1]), float(bbox_raw[2]), float(bbox_raw[3])]
+                    else:
+                        bounding_box = [lat - 0.05, lat + 0.05, lng - 0.05, lng + 0.05]
+
                     results.append({
                         "name": item.get("display_name", query).split(",")[0],
                         "lat": lat,
                         "lng": lng,
                         "hierarchy": hierarchy if hierarchy else [query],
                         "population": pop_est,
-                        "area_sq_km": self._approximate_area(item.get("boundingbox", [])),
+                        "area_sq_km": self._approximate_area(bbox_raw),
                         "elevation": self._fetch_elevation(lat, lng),
                         "location_type": location_type,
                         "timezone": self._guess_timezone(lng),
-                        "source": "OpenStreetMap Nominatim"
+                        "source": "OpenStreetMap Nominatim",
+                        "confidence": "geocoded",
+                        "bounding_box": bounding_box
                     })
         except Exception:
             # Silence exception, proceed to synthetic generation fallback
@@ -292,16 +319,11 @@ class GeospatialService:
         """
         Returns a structured 'not found' response when Nominatim is offline or
         the query yields no results.
-
-        We intentionally do NOT generate random coordinates here — returning fake
-        coordinates for an unknown location would cause incorrect simulations and
-        mislead users. Instead, we surface the failure clearly so the UI can
-        show a helpful 'location not found' message.
         """
         return {
             "name": query.strip().capitalize(),
-            "lat": None,
-            "lng": None,
+            "lat": 0.0,
+            "lng": 0.0,
             "hierarchy": ["Unknown Location"],
             "population": 0,
             "area_sq_km": 0.0,
@@ -309,6 +331,8 @@ class GeospatialService:
             "location_type": "unknown",
             "timezone": "UTC+0",
             "source": "Not Found",
+            "confidence": "synthetic",
+            "bounding_box": [0.0, 0.0, 0.0, 0.0],
             "error": (
                 f"Location '{query}' could not be found. "
                 "Check the spelling, try a city name, or add a country/region for disambiguation."
@@ -380,13 +404,14 @@ class GeospatialService:
                                     node_id,
                                     lat=pt["lat"],
                                     lng=pt["lon"],
-                                    type=random.choice(["residential", "commercial", "park"]),
-                                    population_density=random.randint(10, 80),
-                                    energy_demand=random.randint(15, 60),
-                                    pollution_level=random.randint(10, 60)
+                                    type=self._get_deterministic_choice(f"{pt['lat']}_{pt['lon']}_type", ["residential", "commercial", "park"]),
+                                    population_density=float(self._get_deterministic_int(f"{pt['lat']}_{pt['lon']}_pop", 10, 80)),
+                                    energy_demand=float(self._get_deterministic_int(f"{pt['lat']}_{pt['lon']}_nrg", 15, 60)),
+                                    pollution_level=float(self._get_deterministic_int(f"{pt['lat']}_{pt['lon']}_pol", 10, 60))
                                 )
                             
                             if from_node:
+                                base_cong = self._get_deterministic_float(f"{from_node}_{node_id}_cong", 0.05, 0.25)
                                 graph.add_edge(
                                     from_node,
                                     node_id,
@@ -394,7 +419,7 @@ class GeospatialService:
                                     length_m=350,
                                     speed_limit_kph=int(way.get("tags", {}).get("maxspeed", 50)),
                                     lanes=int(way.get("tags", {}).get("lanes", 2)),
-                                    base_congestion=random.uniform(0.05, 0.25)
+                                    base_congestion=base_cong
                                 )
                             from_node = node_id
                             node_counter += 1
@@ -412,7 +437,7 @@ class GeospatialService:
                                 [attrs["lng"] - 0.0003, attrs["lat"] + 0.0003],
                                 [attrs["lng"] - 0.0003, attrs["lat"] - 0.0003]
                             ],
-                            "height": random.randint(8, 25)
+                            "height": self._get_deterministic_int(f"{attrs['lat']}_{attrs['lng']}_bld_h", 8, 25)
                         })
                         
         except Exception:
@@ -438,14 +463,18 @@ class GeospatialService:
                     else:
                         n_type = "commercial" if r in [grid_size//2, grid_size//2 + 1] else "residential"
 
+                    pop_d = float(self._get_deterministic_int(f"{n_lat}_{n_lng}_pop", 8, 45 if loc_type == "village" else 100))
+                    nrg = float(self._get_deterministic_int(f"{n_lat}_{n_lng}_nrg", 10, 30 if loc_type == "village" else 90))
+                    pol = float(self._get_deterministic_int(f"{n_lat}_{n_lng}_pol", 5, 20 if loc_type == "village" else 80))
+
                     graph.add_node(
                         node_id,
                         lat=n_lat,
                         lng=n_lng,
                         type=n_type,
-                        population_density=random.randint(8, 45) if loc_type == "village" else random.randint(40, 100),
-                        energy_demand=random.randint(10, 30) if loc_type == "village" else random.randint(50, 90),
-                        pollution_level=random.randint(5, 20) if loc_type == "village" else random.randint(30, 80)
+                        population_density=pop_d,
+                        energy_demand=nrg,
+                        pollution_level=pol
                     )
 
             # Add horizontal/vertical edges
@@ -453,6 +482,7 @@ class GeospatialService:
                 for c in range(grid_size):
                     # East
                     if c < grid_size - 1:
+                        base_cong = 0.02 if loc_type == "village" else 0.15
                         graph.add_edge(
                             f"node_{r}_{c}",
                             f"node_{r}_{c+1}",
@@ -460,10 +490,11 @@ class GeospatialService:
                             length_m=420,
                             speed_limit_kph=40 if loc_type == "village" else 50,
                             lanes=1 if loc_type == "village" else 2,
-                            base_congestion=0.02 if loc_type == "village" else 0.15
+                            base_congestion=base_cong
                         )
                     # South
                     if r < grid_size - 1:
+                        base_cong = 0.01 if loc_type == "village" else 0.12
                         graph.add_edge(
                             f"node_{r}_{c}",
                             f"node_{r+1}_{c}",
@@ -471,7 +502,7 @@ class GeospatialService:
                             length_m=450,
                             speed_limit_kph=40 if loc_type == "village" else 50,
                             lanes=1 if loc_type == "village" else 2,
-                            base_congestion=0.01 if loc_type == "village" else 0.12
+                            base_congestion=base_cong
                         )
 
             # Generate high-fidelity mockup building footprints around grid nodes
@@ -483,9 +514,10 @@ class GeospatialService:
                     
                     # Place a couple of buildings in the cell
                     for i in range(2):
-                        b_lat = c_lat + random.uniform(-0.0005, 0.0005)
-                        b_lng = c_lng + random.uniform(-0.0005, 0.0005)
+                        b_lat = c_lat + self._get_deterministic_float(f"{c_lat}_{c_lng}_{i}_lat_off", -0.0005, 0.0005)
+                        b_lng = c_lng + self._get_deterministic_float(f"{c_lat}_{c_lng}_{i}_lng_off", -0.0005, 0.0005)
                         offset = 0.0002
+                        b_height = self._get_deterministic_int(f"{b_lat}_{b_lng}_height", 4, 12 if loc_type == "village" else 60)
                         buildings.append({
                             "type": "building",
                             "coordinates": [
@@ -495,9 +527,10 @@ class GeospatialService:
                                 [b_lng - offset, b_lat + offset],
                                 [b_lng - offset, b_lat - offset]
                             ],
-                            "height": random.randint(4, 12) if loc_type == "village" else random.randint(15, 60)
+                            "height": b_height
                         })
 
         return graph, buildings, datasets
 
 geospatial_service = GeospatialService()
+
