@@ -6,6 +6,7 @@ import time
 import networkx as nx
 from typing import Dict, Any, List, Tuple
 from configs.config import settings
+from services.traffic_calibration_service import traffic_calibration_service
 
 
 # Pre-defined high-fidelity presets for common queries to ensure perfect offline/speedy demos
@@ -354,7 +355,7 @@ class GeospatialService:
             "buildings": {"status": "estimated", "source": "AI Block Planner"},
             "weather": {"status": "available", "source": "OpenWeather Map API"},
             "air_quality": {"status": "available", "source": "OpenAQ System"},
-            "traffic": {"status": "estimated", "source": "AI GNN Congestion Flow Model"},
+            "traffic": {"status": "estimated", "source": "Spectral Graph Congestion Flow Model"},
             "flood": {"status": "estimated", "source": "Topographical Runoff Model"},
             "transit": {"status": "estimated", "source": "AI Transit Flow Router"}
         }
@@ -529,6 +530,15 @@ class GeospatialService:
                             ],
                             "height": b_height
                         })
+        # Step 3: Calibrate graph traffic with empirical benchmarks or live TomTom telemetry
+        traffic_meta = traffic_calibration_service.calibrate_graph(graph, lat, lng)
+        if traffic_meta.get("status") == "calibrated":
+            datasets["traffic"] = {
+                "status": "calibrated",
+                "source": traffic_meta.get("source", "Chennai Smart City Open Data"),
+                "mean_speed_kph": traffic_meta.get("mean_calibrated_speed_kph"),
+                "mean_congestion": traffic_meta.get("mean_congestion")
+            }
 
         return graph, buildings, datasets
 

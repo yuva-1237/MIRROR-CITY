@@ -7,7 +7,8 @@ import ExplainabilityPanel from './ExplainabilityPanel';
 import IncidentReporter from './IncidentReporter';
 import MapPanel from './MapPanel'; // High-fidelity interactive Leaflet Map
 import LiveMap3D from './LiveMap3D'; // 3D deck.gl basemap
-import { Radio, AlertCircle, RefreshCw, Shield, Clock, Globe } from 'lucide-react';
+import AgentCollaborationView from './AgentCollaborationView';
+import { Radio, AlertCircle, RefreshCw, Shield, Clock, Globe, Scale, Brain } from 'lucide-react';
 
 import { useLocationStore } from '../store/locationStore';
 import LocationSearch from './LocationSearch';
@@ -23,6 +24,7 @@ interface CommandCenterProps {
 export default function CommandCenter({ authToken, role, streamData: data, streamConnected: connected }: CommandCenterProps) {
   const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
+  const [agentTab, setAgentTab] = useState<'collaboration' | 'agents'>('collaboration');
 
   const { activeLocation, initActiveLocation, isLoadingTwin } = useLocationStore();
 
@@ -92,7 +94,7 @@ export default function CommandCenter({ authToken, role, streamData: data, strea
       </header>
 
       {/* Universal Location Intelligence Bar */}
-      <section className="glass-panel p-4 rounded-xl border border-brand-border/60 bg-brand-panel/40 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+      <section className="glass-panel p-4 rounded-xl border border-brand-border/60 bg-brand-panel/40 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center relative z-[50]">
         {/* Search Input */}
         <div className="lg:col-span-4">
           <LocationSearch authToken={authToken} />
@@ -255,17 +257,57 @@ export default function CommandCenter({ authToken, role, streamData: data, strea
             </div>
           </div>
 
-          {/* Layer 5.3: Bottom Row - Agent reasoning network & timelines */}
+          {/* Layer 5.3: Bottom Row - Agent reasoning network, conflict resolver & explainability */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* 10 Autonomous agents cards */}
-            <div className="lg:col-span-8">
-              <AgentReasoningPanel agentOutputs={data.agent_outputs} />
+            {/* Left 8 Cols: Agent Collaboration Loop or Individual Agent Reasoning */}
+            <div className="lg:col-span-8 flex flex-col space-y-2">
+              {/* Tab Selector */}
+              <div className="flex justify-between items-center bg-[#101625]/60 border border-brand-border px-3 py-1.5 rounded-xl glass-panel text-[11px] font-mono">
+                <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                  Multi-Agent Cognitive Layer
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setAgentTab('collaboration')}
+                    className={`px-2.5 py-1 rounded flex items-center gap-1.5 font-bold transition ${
+                      agentTab === 'collaboration'
+                        ? 'bg-brand-neonPurple/20 text-brand-neonPurple border border-brand-neonPurple/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    <Scale className="h-3 w-3" /> Collaboration & Conflict Resolver
+                  </button>
+                  <button
+                    onClick={() => setAgentTab('agents')}
+                    className={`px-2.5 py-1 rounded flex items-center gap-1.5 font-bold transition ${
+                      agentTab === 'agents'
+                        ? 'bg-brand-neonCyan/20 text-brand-neonCyan border border-brand-neonCyan/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    <Brain className="h-3 w-3" /> Autonomous Agent Network (10)
+                  </button>
+                </div>
+              </div>
+
+              {agentTab === 'collaboration' ? (
+                <AgentCollaborationView
+                  collaborationLoop={data.collaboration_loop}
+                  agentOutputs={data.agent_outputs}
+                />
+              ) : (
+                <AgentReasoningPanel agentOutputs={data.agent_outputs} />
+              )}
             </div>
 
             {/* AI Explainability & Cascade recommendation */}
             <div className="lg:col-span-4">
-              <ExplainabilityPanel masterRec={data.master_recommendation} dataQuality={data.data_quality} />
+              <ExplainabilityPanel
+                masterRec={data.master_recommendation}
+                dataQuality={data.data_quality}
+                agentOutputs={data.agent_outputs}
+              />
             </div>
           </div>
 

@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  config-safety:
+    name: "Job 1 — Config Safety & Secret Leak Guard"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pydantic pydantic-settings pytest
+
+      - name: Verify .env is not tracked in git
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "CRITICAL SECURITY FAILURE: .env file is tracked in git!"
+            exit 1
+          fi
+          echo ".env is cleanly gitignored."
+
+      - name: Verify fail-fast config guards
+        env:
+          JWT_SECRET: ci-test-token-secret-for-mirror-city-automated-tests-32-chars-long
+        run: |
+          pytest tests/test_real_data_pipeline.py -k "test_config" -v
+
+  test-sqlite:
+    name: "Job 2 — SQLite Unit & Numerical Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest Suite on SQLite
+        env:
+          JWT_SECRET: ci-test-token-secret-for-mirror-city-automated-tests-32-chars-long
+          LLM_PROVIDER: mock
+          NODE_ENV: test
+          DATABASE_MODE: sqlite
+        run: |
+          pytest tests/ -v
+
+  test-postgis:
+    name: "Job 3 — PostGIS Spatial Dialect Suite"
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: mc
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: mirrorcity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with PostGIS database
+        env:
+          JWT_SECRET: ci-test-token-secret-for-mirror-city-automated-tests-32-chars-long
+          LLM_PROVIDER: mock
+          NODE_ENV: test
+          DATABASE_MODE: postgis
+          POSTGIS_URL: postgresql://mc:pass@localhost:5432/mirrorcity
+        run: |
+          pytest tests/ -v
+
+  eval-reproducibility:
+    name: "Job 4 — Evaluation Reproducibility & MAE Drift Gate"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Model Evaluation Against Golden Dataset Fixture (<5% Drift Gate)
+        env:
+          JWT_SECRET: ci-test-token-secret-for-mirror-city-automated-tests-32-chars-long
+          LLM_PROVIDER: mock
+          NODE_ENV: test
+          DATABASE_MODE: sqlite
+        run: |
+          pytest tests/test_real_data_pipeline.py -k "test_golden_fixture_seeding_and_evaluation_drift_gate" -v

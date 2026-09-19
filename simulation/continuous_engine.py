@@ -2,14 +2,15 @@ import os
 import json
 import networkx as nx
 from typing import Dict, Any, List
-from simulation.gnn import TrafficGNN
+from simulation.spectral_propagator import SpectralTrafficPropagator
 from simulation.flood_model import FloodModel
 from simulation.crowd_model import CrowdModel
 from simulation.disaster_model import disaster_model
 
 class ContinuousEngine:
     def __init__(self):
-        self.gnn = TrafficGNN()
+        self.spectral_propagator = SpectralTrafficPropagator()
+        self.gnn = self.spectral_propagator
         self.flood = FloodModel()
         self.crowd = CrowdModel()
         self.baseline_path = os.path.abspath(
@@ -34,7 +35,7 @@ class ContinuousEngine:
                 "buildings": {"status": "available", "source": "OpenStreetMap"},
                 "weather": {"status": "available", "source": "OpenWeather Map"},
                 "air_quality": {"status": "available", "source": "OpenAQ"},
-                "traffic": {"status": "estimated", "source": "AI GNN Congestion Flow Model"},
+                "traffic": {"status": "estimated", "source": "Spectral Graph Congestion Flow Model"},
                 "flood": {"status": "estimated", "source": "Topographical Runoff Model"},
                 "transit": {"status": "estimated", "source": "Estimated Transit Network"}
             }
@@ -77,21 +78,21 @@ class ContinuousEngine:
         self.buildings_layer = buildings
 
     def run_tick(self, rain_intensity: float) -> Dict[str, Any]:
-        """Perform one unified simulation pass of GNN, flood, crowd, and active disaster."""
+        """Perform one unified simulation pass of spectral graph traffic propagation, flood, crowd, and active disaster."""
         graph = self.load_graph()
         
         # 1. Update disaster state
         disaster_state = disaster_model.update_disaster()
         disaster_mods = disaster_model.get_impact_modifiers()
         
-        # 2. Run GNN propagation with disaster modifiers
+        # 2. Run spectral graph traffic propagation with disaster modifiers
         # Adjust edge weights by disaster congestion
         if disaster_mods:
             for u, v in graph.edges():
                 base_congest = graph.edges[u, v].get("base_congestion", 0.1)
                 graph.edges[u, v]["base_congestion"] = min(0.95, base_congest + disaster_mods.get("traffic_congestion_add", 0.0) / 100.0)
                 
-        graph = self.gnn.propagate_traffic(graph)
+        graph = self.spectral_propagator.propagate_traffic(graph)
         
         # 3. Simulate flood spread
         flood_results = self.flood.simulate_flood_spread(graph, rain_intensity)

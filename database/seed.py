@@ -101,13 +101,13 @@ def seed_database():
             print("Database already seeded. Skipping.")
             return
 
-        print("Seeding users...")
+        print("Seeding users (with forced password reset on first login)...")
         users = [
-            User(email="admin@mirrorcity.gov", password_hash=hash_password("adminpassword"), role="Administrator"),
-            User(email="planner@mirrorcity.gov", password_hash=hash_password("plannerpassword"), role="Planner"),
-            User(email="citizen@mirrorcity.gov", password_hash=hash_password("citizenpassword"), role="Citizen"),
-            User(email="officer@mirrorcity.gov", password_hash=hash_password("officerpassword"), role="Government Official"),
-            User(email="researcher@mirrorcity.gov", password_hash=hash_password("researcherpassword"), role="Researcher"),
+            User(email="admin@mirrorcity.gov", password_hash=hash_password("adminpassword"), role="Administrator", must_change_password=True),
+            User(email="planner@mirrorcity.gov", password_hash=hash_password("plannerpassword"), role="Planner", must_change_password=True),
+            User(email="citizen@mirrorcity.gov", password_hash=hash_password("citizenpassword"), role="Citizen", must_change_password=True),
+            User(email="officer@mirrorcity.gov", password_hash=hash_password("officerpassword"), role="Government Official", must_change_password=True),
+            User(email="researcher@mirrorcity.gov", password_hash=hash_password("researcherpassword"), role="Researcher", must_change_password=True),
         ]
         db.add_all(users)
         db.commit()

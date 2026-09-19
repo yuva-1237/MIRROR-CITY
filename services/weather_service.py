@@ -124,8 +124,9 @@ class WeatherService:
             "wind_speed":     round(wind_speed, 1),
             "rain_intensity": round(rain_intensity, 2),
             "condition":      condition,
-            "source":         "simulation",
+            "source":         "simulated",
             "confidence":     65,
         }
+
 
 weather_service = WeatherService()

@@ -1,14 +1,16 @@
 import os
 import json
+import numpy as np
 import networkx as nx
 from typing import Dict, Any, List
 from configs.config import settings
 from gis.spatial import find_nearest_node, find_nearest_edge, haversine_distance
-from simulation.gnn import TrafficGNN
+from simulation.spectral_propagator import SpectralTrafficPropagator
 
 class SimulationEngine:
     def __init__(self):
-        self.gnn = TrafficGNN()
+        self.spectral_propagator = SpectralTrafficPropagator()
+        self.gnn = self.spectral_propagator  # backward-compat alias
         self.baseline_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "configs", "city_graph_baseline.json")
         )
@@ -120,8 +122,8 @@ class SimulationEngine:
                         if dist < 1000.0:
                             graph.nodes[n]["pollution_level"] = max(10.0, graph.nodes[n].get("pollution_level", 50.0) - 20.0)
 
-        # Run GNN to compute final edge congestion & travel times
-        graph = self.gnn.propagate_traffic(graph)
+        # Run spectral graph propagation to compute final edge congestion & travel times
+        graph = self.spectral_propagator.propagate_traffic(graph)
 
         # 1. Traffic Congestion & Average Travel Time Calculations (Dijkstra Commuting Paths)
         res_nodes = [n for n, d in graph.nodes(data=True) if d.get("type") == "residential"]

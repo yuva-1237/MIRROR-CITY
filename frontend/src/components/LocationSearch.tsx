@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Search, RefreshCw, AlertCircle, History, MapPin, X } from 'lucide-react';
 import { useLocationStore, LocationObject } from '../store/locationStore';
 
-
 interface LocationSearchProps {
   authToken: string;
 }
@@ -40,11 +39,10 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
 
   // Save to recent searches
   const saveToRecent = (location: LocationObject) => {
-    // Avoid duplicates by name and coordinates
     const filtered = recentSearches.filter(
       (item) => item.name !== location.name || item.lat !== location.lat || item.lng !== location.lng
     );
-    const updated = [location, ...filtered].slice(0, 5); // Limit to last 5
+    const updated = [location, ...filtered].slice(0, 5);
     setRecentSearches(updated);
     try {
       localStorage.setItem('mc_recent_searches', JSON.stringify(updated));
@@ -81,11 +79,11 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
       }, 300);
     } else {
       clearSearch();
-      setShowDropdown(false);
+      setShowDropdown(true);
     }
   };
 
-  // Handle Form Submit (Pressing Enter/Resolve button manually)
+  // Handle Form Submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -143,10 +141,10 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
   const hasHistory = recentSearches.length > 0;
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full z-[100]">
       <form onSubmit={handleSubmit} className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search global town, village, city..."
@@ -154,7 +152,7 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={() => setShowDropdown(true)}
-            className="w-full bg-slate-900/60 border border-brand-border rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-neonCyan focus:border-brand-neonCyan"
+            className="w-full bg-[#0a0f1d] border border-brand-border rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-neonCyan focus:border-brand-neonCyan shadow-inner"
           />
           {searchQuery && (
             <button
@@ -162,9 +160,9 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
               onClick={() => {
                 setSearchQuery('');
                 clearSearch();
-                setShowDropdown(false);
+                setShowDropdown(true);
               }}
-              className="absolute right-3 top-2.5 text-slate-500 hover:text-white"
+              className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition"
             >
               <X size={14} />
             </button>
@@ -173,7 +171,7 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
         <button
           type="submit"
           disabled={isSearching || isLoadingTwin}
-          className="bg-brand-accent hover:bg-brand-accent/80 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+          className="bg-brand-accent hover:bg-brand-accent/80 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-md"
         >
           {(isSearching || isLoadingTwin) ? (
             <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -189,12 +187,12 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
         {searchError && `Error: ${searchError}`}
       </div>
 
-      {/* Dropdown Options List */}
+      {/* Dropdown Options List - Solid opaque dark background */}
       {showDropdown && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-[2100] bg-slate-900 border border-brand-border rounded-xl shadow-2xl p-2 max-h-[300px] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 z-[9999] bg-[#090d16] border border-brand-border/80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.98)] p-3 max-h-[350px] overflow-y-auto animate-fadeIn opacity-100">
           {/* Active Error state */}
           {searchError && (
-            <div className="p-3 text-brand-neonOrange text-xs flex gap-2 items-start bg-slate-950/80 border border-brand-neonOrange/30 rounded-lg mb-2">
+            <div className="p-3 text-brand-neonOrange text-xs flex gap-2 items-start bg-slate-950 border border-brand-neonOrange/40 rounded-lg mb-2">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Search Unresolved</p>
@@ -205,50 +203,54 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
 
           {/* Autocomplete Results */}
           {isSearching ? (
-            <div className="flex items-center gap-2 px-3 py-4 text-xs text-slate-400 font-mono">
+            <div className="flex items-center gap-2.5 px-3 py-4 text-xs text-slate-300 font-mono">
               <RefreshCw className="h-4 w-4 animate-spin text-brand-neonCyan" />
               RESOLVING SPATIAL COORDINATES...
             </div>
           ) : hasResults ? (
             <div>
-              <div className="flex justify-between items-center px-2 pb-2 border-b border-brand-border/40 mb-1">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Resolved Places</span>
-                <span className="text-[8px] text-slate-400 font-mono">↑↓ to navigate | Enter to load</span>
+              <div className="flex justify-between items-center px-2 pb-2 border-b border-brand-border/60 mb-2">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Resolved Places</span>
+                <span className="text-[8px] text-slate-400 font-mono">Use arrow keys to navigate | Enter to select</span>
               </div>
-              {searchResults.map((city, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSelectLocation(city)}
-                  onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`w-full text-left p-2 rounded-lg border border-transparent transition flex justify-between items-center group font-sans ${
-                    highlightedIndex === idx ? 'bg-brand-accent/25 border-brand-accent/40 text-white' : 'hover:bg-brand-accent/10'
-                  }`}
-                >
-                  <div className="flex-1 pr-2">
-                    <h5 className="text-xs font-bold text-slate-200 group-hover:text-brand-neonCyan flex items-center gap-1">
-                      <MapPin size={12} className="text-slate-400 group-hover:text-brand-neonCyan" />
-                      {city.name}
-                    </h5>
-                    <p className="text-[9px] text-slate-400 mt-0.5">
-                      {city.hierarchy && city.hierarchy.length > 0 ? city.hierarchy.join(' > ') : 'Global Coordinate'}
-                    </p>
-                    <p className="text-[8px] text-slate-500 mt-0.5 font-mono">
-                      Coordinates: {city.lat.toFixed(4)}, {city.lng.toFixed(4)}
-                    </p>
-                  </div>
-                  <span className="text-[9px] font-mono text-slate-400 uppercase bg-slate-950 px-2 py-0.5 rounded border border-brand-border/40 shrink-0">
-                    {city.location_type}
-                  </span>
-                </button>
-              ))}
+              <div className="space-y-1.5">
+                {searchResults.map((city, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectLocation(city)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    className={`w-full text-left p-2.5 rounded-lg border transition flex justify-between items-center group font-sans ${
+                      highlightedIndex === idx
+                        ? 'bg-blue-600/50 border-blue-400 text-white shadow-md'
+                        : 'bg-[#111726] border-brand-border/60 hover:bg-[#1a2338] hover:border-brand-border text-slate-200'
+                    }`}
+                  >
+                    <div className="flex-1 pr-2 min-w-0">
+                      <h5 className="text-xs font-bold text-slate-200 group-hover:text-brand-neonCyan flex items-center gap-1.5 truncate">
+                        <MapPin size={12} className="text-slate-400 group-hover:text-brand-neonCyan shrink-0" />
+                        <span className="truncate">{city.name}</span>
+                      </h5>
+                      <p className="text-[9px] text-slate-400 mt-0.5 truncate">
+                        {Array.isArray(city.hierarchy) && city.hierarchy.length > 0 ? city.hierarchy.join(' > ') : 'Global Coordinate'}
+                      </p>
+                      <p className="text-[8px] text-slate-500 mt-0.5 font-mono">
+                        Coordinates: {city.lat.toFixed(4)}, {city.lng.toFixed(4)}
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-300 uppercase bg-[#060912] px-2 py-0.5 rounded border border-brand-border/60 shrink-0 font-semibold">
+                      {city.location_type || 'PLACE'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : !searchQuery.trim() && hasHistory ? (
             /* Recent Searches when search box is empty */
             <div>
-              <div className="flex justify-between items-center px-2 pb-2 border-b border-brand-border/40 mb-1">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
-                  <History size={10} /> Recent Searches
+              <div className="flex justify-between items-center px-2 pb-2 border-b border-brand-border/60 mb-2">
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                  <History size={12} className="text-brand-neonCyan" /> Recent Searches
                 </span>
                 <button
                   type="button"
@@ -257,37 +259,48 @@ export default function LocationSearch({ authToken }: LocationSearchProps) {
                     localStorage.removeItem('mc_recent_searches');
                     setRecentSearches([]);
                   }}
-                  className="text-[8px] text-red-400 hover:text-red-300 uppercase font-mono"
+                  className="text-[9px] text-red-400 hover:text-red-300 uppercase font-mono font-semibold px-2 py-0.5 rounded bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 transition"
                 >
                   Clear History
                 </button>
               </div>
-              {recentSearches.map((city, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSelectLocation(city)}
-                  onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`w-full text-left p-2 rounded-lg border border-transparent transition flex justify-between items-center group font-sans ${
-                    highlightedIndex === idx ? 'bg-brand-accent/25 border-brand-accent/40 text-white' : 'hover:bg-brand-accent/10'
-                  }`}
-                >
-                  <div className="flex-1 pr-2">
-                    <h5 className="text-xs font-bold text-slate-200 group-hover:text-brand-neonCyan flex items-center gap-1">
-                      <History size={12} className="text-slate-500" />
-                      {city.name}
-                    </h5>
-                    <p className="text-[9px] text-slate-400 mt-0.5">{city.hierarchy.join(' > ')}</p>
-                  </div>
-                  <span className="text-[9px] font-mono text-slate-500 uppercase bg-slate-950 px-2 py-0.5 rounded border border-brand-border/40 shrink-0">
-                    {city.location_type}
-                  </span>
-                </button>
-              ))}
+              <div className="space-y-1.5">
+                {recentSearches.map((city, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectLocation(city)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    className={`w-full text-left p-2.5 rounded-lg border transition flex justify-between items-center group font-sans ${
+                      highlightedIndex === idx
+                        ? 'bg-blue-600/50 border-blue-400 text-white shadow-md'
+                        : 'bg-[#111726] border-brand-border/60 hover:bg-[#1a2338] hover:border-brand-border text-slate-200'
+                    }`}
+                  >
+                    <div className="flex-1 pr-3 min-w-0">
+                      <h5 className="text-xs font-bold text-slate-100 group-hover:text-brand-neonCyan flex items-center gap-1.5 truncate">
+                        <History size={12} className="text-slate-400 group-hover:text-brand-neonCyan shrink-0" />
+                        <span className="truncate">{city.name}</span>
+                      </h5>
+                      <p className="text-[9px] text-slate-400 mt-0.5 truncate">
+                        {Array.isArray(city.hierarchy) && city.hierarchy.length > 0
+                          ? city.hierarchy.join(' > ')
+                          : city.name || 'Global Coordinate'}
+                      </p>
+                      <p className="text-[8px] text-slate-500 mt-0.5 font-mono">
+                        Coordinates: {city.lat.toFixed(4)}, {city.lng.toFixed(4)}
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-mono text-brand-neonCyan uppercase bg-[#060912] px-2 py-0.5 rounded border border-brand-border/60 shrink-0 font-semibold shadow-sm">
+                      {city.location_type || 'PLACE'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : searchQuery.trim() && !isSearching ? (
             /* Empty state when query yields no results */
-            <div className="p-3 text-slate-400 text-xs text-center font-mono">
+            <div className="p-4 text-slate-400 text-xs text-center font-mono">
               NO GEOGRAPHIC ENTITIES MATCHED
             </div>
           ) : null}

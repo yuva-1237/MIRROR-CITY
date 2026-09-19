@@ -13,6 +13,7 @@ import {
   Filler
 } from 'chart.js';
 import { ShieldCheck, Activity, Trees, Flame, Compass, RefreshCw } from 'lucide-react';
+import BaselineComparisonChart from './BaselineComparisonChart';
 
 ChartJS.register(
   CategoryScale,
@@ -234,6 +235,9 @@ export default function Dashboard({
           </div>
         </div>
       </div>
+
+      {/* Empirical Baseline Model Comparison Chart */}
+      <BaselineComparisonChart />
 
       {/* Explainable AI Recommendations Panel */}
       <div className="bg-[#101625]/60 border border-brand-border p-5 rounded-2xl glass-panel">

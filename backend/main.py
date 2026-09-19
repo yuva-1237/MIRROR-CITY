@@ -33,6 +33,7 @@ from api.ws import router as ws_router
 from api.incidents import router as incidents_router
 from api.live_metrics import router as live_metrics_router
 from api.geospatial import router as geospatial_router
+from api.evaluations import router as evaluations_router
 
 from services.city_clock import city_clock
 from services.ws_manager import ws_manager
@@ -49,15 +50,26 @@ if origins_env:
     origins = [x.strip() for x in origins_env.split(",") if x.strip()]
 else:
     origins = [
-        "http://localhost:5173",  # Vite default port
+        "http://localhost",
+        "https://localhost",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:3000",  # Alternative Next.js port
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -128,23 +140,42 @@ app.include_router(ws_router)
 app.include_router(incidents_router, prefix=settings.API_V1_STR)
 app.include_router(live_metrics_router, prefix=settings.API_V1_STR)
 app.include_router(geospatial_router, prefix=settings.API_V1_STR)
+app.include_router(evaluations_router, prefix=settings.API_V1_STR)
 
 import time
 from sqlalchemy import text
-from database.connection import SessionLocal
+from database.connection import SessionLocal, init_schema
 from database.schema import User, Scenario
 
 START_TIME = time.time()
 
 @app.on_event("startup")
 def startup_event():
+    # Bootstrap dual-mode database schema (SQLite / PostGIS)
+    try:
+        init_schema()
+    except Exception as e:
+        logger.error(f"Error initializing schema on startup: {e}")
     # Start the continuous digital twin simulation clock
     city_clock.start()
+    # Start background live traffic poller if enabled
+    try:
+        from real_data_pipeline import start_background_traffic_poller
+        start_background_traffic_poller()
+    except Exception as e:
+        logger.warning(f"Note on starting background traffic poller: {e}")
 
 @app.on_event("shutdown")
 def shutdown_event():
     # Stop the continuous digital twin clock
     city_clock.stop()
+    # Stop background traffic poller
+    try:
+        from real_data_pipeline import stop_background_traffic_poller
+        stop_background_traffic_poller()
+    except Exception as e:
+        pass
+
 
 @app.get("/")
 @app.get("/health")

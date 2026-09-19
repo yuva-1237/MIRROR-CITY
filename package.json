@@ -1,0 +1,21 @@
+{
+  "name": "mirror-city",
+  "version": "2.0.0",
+  "scripts": {
+    "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:server": "node index.js"
+  },
+  "dependencies": {
+    "firebase": "^12.19.0",
+    "web-push": "^3.6.7"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  }
+}

@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     role: str
+    must_change_password: bool = False
     created_at: datetime.datetime
 
     class Config:
@@ -31,6 +32,18 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     role: str
+    must_change_password: bool = False
+
+class FirebaseLogin(BaseModel):
+    email: EmailStr
+    role: Optional[str] = "Planner"
+    display_name: Optional[str] = None
+    firebase_uid: Optional[str] = None
+    password: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = None
+    new_password: str
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
@@ -72,7 +85,8 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
     user = User(
         email=user_in.email,
         password_hash=hashed,
-        role=user_in.role
+        role=user_in.role,
+        must_change_password=False
     )
     db.add(user)
     db.commit()
@@ -94,7 +108,65 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return {
         "access_token": token,
         "token_type": "bearer",
-        "role": user.role
+        "role": user.role,
+        "must_change_password": bool(user.must_change_password)
+    }
+
+@router.post("/firebase-login", response_model=Token)
+def firebase_login(data: FirebaseLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter_by(email=data.email).first()
+    if not user:
+        # Create new user record for Firebase or direct user
+        pwd = data.password if data.password else (data.firebase_uid or "mirrorcity_authenticated_user")
+        user = User(
+            email=data.email,
+            password_hash=hash_password(pwd),
+            role=data.role or "Planner",
+            must_change_password=False
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        # Update role if passed
+        if data.role and user.role != data.role:
+            user.role = data.role
+            db.commit()
+            db.refresh(user)
+
+    token = create_access_token(data={"sub": user.email, "role": user.role})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user.role,
+        "must_change_password": bool(user.must_change_password)
+    }
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if len(data.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 8 characters long"
+        )
+    
+    if data.current_password and not verify_password(current_user.password_hash, data.current_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+
+    current_user.password_hash = hash_password(data.new_password)
+    current_user.must_change_password = False
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "message": "Password updated successfully. Forced password change cleared.",
+        "must_change_password": False
     }
 
 @router.get("/me", response_model=UserResponse)

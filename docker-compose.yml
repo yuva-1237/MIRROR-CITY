@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  postgis:
+    image: postgis/postgis:15-3.4
+    container_name: mirror_city_postgis
+    environment:
+      POSTGRES_DB: mirror_city
+      POSTGRES_USER: mirror_city_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mirror_city_secure_pass_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mirror_city_user -d mirror_city"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -12,12 +30,15 @@ services:
       - sqlite_data:/app
     environment:
       - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/mirror_city.db}
       - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
       - WEATHERAPI_API_KEY=${WEATHERAPI_API_KEY}
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_SECRET=${JWT_SECRET}
     restart: always
+    depends_on:
+      - postgis
 
   frontend:
     build:
@@ -32,4 +53,6 @@ services:
 
 volumes:
   sqlite_data:
+  postgis_data:
+
 

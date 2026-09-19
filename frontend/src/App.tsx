@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User as UserIcon, LogOut, FileDown, Plus, LayoutDashboard, ArrowLeftRight, Settings, Radio, ShieldAlert } from 'lucide-react';
 import { apiFetch, apiPost, apiDelete, isTokenExpired, clearAuthState, registerOn401Handler, API_BASE_URL } from './lib/api';
 import AuthScreen from './components/AuthScreen';
+import { auth, signOut } from './lib/firebase';
 import MapPanel from './components/MapPanel';
 import Dashboard from './components/Dashboard';
 import PlanningAssistant from './components/PlanningAssistant';
@@ -11,6 +12,7 @@ import OfflineBanner from './components/OfflineBanner';
 import RoleDashboard from './components/RoleDashboard';
 import SystemHealthPanel from './components/SystemHealthPanel';
 import { useCityStream } from './hooks/useCityStream';
+import ConnectionStatusBadge from './components/ConnectionStatusBadge';
 import CommandCenter from './components/CommandCenter';
 import { useLocationStore } from './store/locationStore';
 
@@ -26,7 +28,7 @@ interface Scenario {
 }
 
 export default function App() {
-  const { data: streamData, connected: streamConnected, retryCount } = useCityStream();
+  const { data: streamData, connected: streamConnected, retryCount, isStale: streamStale } = useCityStream();
   const { activeLocation, initActiveLocation } = useLocationStore();
 
   const [token, setToken] = useState<string>(localStorage.getItem('token') || '');
@@ -73,6 +75,7 @@ export default function App() {
 
   // Handle Logout
   const handleLogout = () => {
+    signOut(auth).catch(() => {});
     clearAuthState();
     setToken('');
     setRole('');
@@ -321,13 +324,18 @@ export default function App() {
         </nav>
 
         {/* User Info & Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ConnectionStatusBadge
+            connected={streamConnected}
+            retryCount={retryCount}
+            isStale={streamStale}
+          />
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
               <UserIcon size={12} className="text-brand-neonCyan" />
               {role}
             </span>
-            <span className="text-[9px] text-slate-500">Connected</span>
+            <span className="text-[9px] text-slate-500">{streamConnected ? 'Authenticated' : 'Offline'}</span>
           </div>
           <button
             onClick={handleLogout}

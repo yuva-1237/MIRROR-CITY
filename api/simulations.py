@@ -11,6 +11,7 @@ from api.auth import get_current_user
 from simulation.engine import SimulationEngine
 from ai.agent_coordinator import AgentCoordinator
 from models.forecaster import TemporalForecaster
+from models.baseline_evaluator import baseline_evaluator
 from configs.config import settings
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,14 @@ router = APIRouter(prefix="/simulations", tags=["simulations"])
 engine = SimulationEngine()
 coordinator = AgentCoordinator()
 forecaster = TemporalForecaster()
+
+@router.get("/baseline-comparison")
+def get_baseline_comparison():
+    """
+    Returns empirical accuracy evaluation comparing the Spectral Graph Propagation Model
+    against a naive 'no-propagation' static baseline on calibrated historical traffic data.
+    """
+    return baseline_evaluator.evaluate_15min_ahead()
 
 class AssistantRequest(BaseModel):
     prompt: str
@@ -129,12 +138,18 @@ def compare_scenarios(
                 "actions": []
             }
 
+        elements_summary = [
+            {"id": e.id, "type": e.type, "name": e.name, "cost": e.cost, "capacity": e.capacity}
+            for e in scen.elements
+        ]
+
         comparison_results.append({
             "scenario_id": scen.id,
             "name": scen.name,
             "description": scen.description,
             "status": scen.status,
             "element_count": len(scen.elements),
+            "elements": elements_summary,
             "metrics": metrics,
             "recommendations": recommendations
         })

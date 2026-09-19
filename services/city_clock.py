@@ -59,7 +59,7 @@ class CityClock:
                 except Exception as db_err:
                     logger.error(f"Database error in clock loop: {db_err}")
                 
-                # 3. Run continuous simulation models (GNN + Flood + Crowd + Disaster)
+                # 3. Run continuous simulation models (Spectral Graph Propagation + Flood + Crowd + Disaster)
                 sim_results = continuous_engine.run_tick(rain_val)
                 
                 # 4. Generate sensor telemetry
@@ -92,6 +92,7 @@ class CityClock:
                     "telemetry": telemetry,
                     "agent_outputs": agent_results["agent_outputs"],
                     "master_recommendation": agent_results["master_recommendation"],
+                    "collaboration_loop": agent_results.get("collaboration_loop"),
                     "predictions": predictions,
                     "active_elements": active_elements,
                     "active_city": continuous_engine.active_city_metadata,

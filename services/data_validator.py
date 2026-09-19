@@ -204,7 +204,30 @@ class DataValidator:
             "issues":             issues[:20],   # cap for payload size
         }
 
+    # -- Source labelling enforcement ---------------------------------------
+
+    def validate_source(self, source: str, allow_simulated: Optional[bool] = None) -> str:
+        """
+        Operational contract: rejects any telemetry whose source is not in
+        ('live_api', 'calibrated', 'simulated').
+        """
+        valid_sources = {"live_api", "calibrated", "simulated"}
+        if not source or source not in valid_sources:
+            raise ValueError(
+                f"Data integrity violation: telemetry source '{source}' is invalid. "
+                f"Must be one of {sorted(valid_sources)}."
+            )
+        from configs.config import settings
+        if allow_simulated is None:
+            allow_simulated = settings.ALLOW_SIMULATED_DATA
+        if source == "simulated" and not allow_simulated:
+            raise ValueError(
+                "Simulated telemetry rejected: ALLOW_SIMULATED_DATA=False in current environment."
+            )
+        return source
+
     # -- Incident deduplication ----------------------------------------------
+
 
     def is_duplicate_incident(
         self,

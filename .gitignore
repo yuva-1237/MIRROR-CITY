@@ -45,3 +45,7 @@ logs/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Node modules
+node_modules/
+
