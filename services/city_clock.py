@@ -11,6 +11,8 @@ from services.ws_manager import ws_manager
 from services.sensor_simulator import SensorSimulator
 from services.weather_service import weather_service
 from services.data_validator import data_validator
+from services.enso_service import enso_service
+from services.city_impact_engine import city_impact_engine
 from ai.agent_coordinator import AgentCoordinator
 from simulation.continuous_engine import continuous_engine
 
@@ -71,6 +73,21 @@ class CityClock:
                 telemetry["crowd_simulation"] = sim_results["crowd"]
                 telemetry["disaster"] = sim_results["disaster"]
 
+                # 4c. Inject Climate DNA (ENSO signals & city teleconnection response)
+                try:
+                    active_meta = continuous_engine.active_city_metadata or {}
+                    climate_dna = city_impact_engine.evaluate_city_impact(
+                        city_name=active_meta.get("name", "Chennai"),
+                        lat=active_meta.get("lat", 13.0827),
+                        lng=active_meta.get("lng", 80.2707),
+                        elevation=active_meta.get("elevation", 20.0),
+                        hierarchy=active_meta.get("hierarchy", [])
+                    )
+                    telemetry["climate_dna"] = climate_dna
+                except Exception as ce:
+                    logger.warning(f"Error evaluating climate DNA in clock tick: {ce}")
+                    telemetry["climate_dna"] = None
+
                 # 4b. Validate telemetry & compute data quality summary
                 data_quality = data_validator.validate_telemetry_batch(telemetry)
                 data_quality["weather_source"]     = current_weather.get("source", "simulation")
@@ -90,6 +107,7 @@ class CityClock:
                     "tick": self.tick_count,
                     "timestamp": datetime.datetime.utcnow().isoformat(),
                     "telemetry": telemetry,
+                    "climate_dna": telemetry.get("climate_dna"),
                     "agent_outputs": agent_results["agent_outputs"],
                     "master_recommendation": agent_results["master_recommendation"],
                     "collaboration_loop": agent_results.get("collaboration_loop"),

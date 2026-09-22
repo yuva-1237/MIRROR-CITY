@@ -60,7 +60,8 @@ class AgentCoordinator:
             agent_outputs,
             weather=telemetry.get("weather", {}),
             elements=elements,
-            collaboration_loop=collaboration_loop
+            collaboration_loop=collaboration_loop,
+            telemetry=telemetry
         )
         
         return {
@@ -74,7 +75,8 @@ class AgentCoordinator:
         agent_outputs: Dict[str, Any],
         weather: Dict[str, Any],
         elements: List[Dict[str, Any]],
-        collaboration_loop: Dict[str, Any] = None
+        collaboration_loop: Dict[str, Any] = None,
+        telemetry: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """Synthesize a unified recommendation explaining cascade effects with telemetry attribution."""
         rain_intensity = weather.get("rain_intensity", 0.0)
@@ -176,7 +178,34 @@ class AgentCoordinator:
                     "priority": "High" if report.get("severity") == "high" else "Medium",
                     "telemetry_driver": report["party_a"].get("telemetry_driver")
                 })
-            
+
+        # Factor in active Climate DNA / ENSO teleconnection signals
+        if telemetry and telemetry.get("climate_dna"):
+            c_dna = telemetry["climate_dna"]
+            enso_s = c_dna.get("enso", {})
+            if enso_s.get("phase") in ["El Niño", "La Niña"]:
+                c_phase = enso_s["phase"]
+                c_int = enso_s.get("intensity", "Moderate")
+                c_anom = enso_s.get("anomaly_c", 0.0)
+                chain.append(
+                    f"Climate Intelligence attribution: {c_phase} ({c_int}, SST anomaly {c_anom:+.1f}°C) "
+                    f"is actively modulating regional precipitation and temperature risk profiles."
+                )
+                telemetry_drivers.append({
+                    "metric_key": "enso_climate_signal",
+                    "metric_label": f"Global ENSO ({c_phase})",
+                    "entity": "NOAA Climate Prediction Center",
+                    "observed_value": round(c_anom, 2),
+                    "unit": "°C anomaly",
+                    "threshold": 0.50 if c_phase == "El Niño" else -0.50,
+                    "comparison": ">=" if c_phase == "El Niño" else "<=",
+                    "delta_from_threshold": f"{c_anom:+0.2f}",
+                    "alert_severity": "warning" if c_int in ["Strong", "Very Strong"] else "nominal",
+                    "rationale": f"NOAA CPC coupled ocean-atmosphere data confirms {c_int} {c_phase} teleconnections.",
+                    "sensor_source": enso_s.get("source", "NOAA CPC"),
+                    "confidence": int(enso_s.get("confidence", 0.85) * 100)
+                })
+
         explanation = " ".join(chain)
         
         return {

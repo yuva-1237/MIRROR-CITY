@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -14,6 +15,8 @@ import {
 } from 'chart.js';
 import { ShieldCheck, Activity, Trees, Flame, Compass, RefreshCw } from 'lucide-react';
 import BaselineComparisonChart from './BaselineComparisonChart';
+import { ClimateDNACard, ClimateDNAModal } from './ClimateDNA';
+import { useLocationStore } from '../store/locationStore';
 
 ChartJS.register(
   CategoryScale,
@@ -34,6 +37,8 @@ interface DashboardProps {
   forecast: any;
   onRunSimulation: () => void;
   simulating: boolean;
+  climateData?: any;
+  authToken?: string;
 }
 
 export default function Dashboard({
@@ -42,8 +47,13 @@ export default function Dashboard({
   recommendations,
   forecast,
   onRunSimulation,
-  simulating
+  simulating,
+  climateData,
+  authToken
 }: DashboardProps) {
+  const [climateModalOpen, setClimateModalOpen] = useState(false);
+  const { activeLocation } = useLocationStore();
+  const token = authToken || localStorage.getItem('token') || '';
   
   // Format the 24h forecasting chart data
   const hoursLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
@@ -217,6 +227,12 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* CLIMATE DNA ENSO Intelligence Card */}
+      <ClimateDNACard
+        climateData={climateData}
+        onExplore={() => setClimateModalOpen(true)}
+      />
+
       {/* Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart 1 */}
@@ -272,6 +288,14 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {/* CLIMATE DNA Intelligence Modal */}
+      <ClimateDNAModal
+        isOpen={climateModalOpen}
+        onClose={() => setClimateModalOpen(false)}
+        activeCity={activeLocation}
+        authToken={token}
+      />
     </div>
   );
 }

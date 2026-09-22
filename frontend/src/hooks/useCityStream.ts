@@ -135,6 +135,7 @@ export interface CityStreamPayload {
   tick: number;
   timestamp: string;
   telemetry: CityTelemetry;
+  climate_dna?: any;
   agent_outputs: Record<string, AgentOutput>;
   master_recommendation: MasterRecommendation;
   predictions: Record<string, any>;

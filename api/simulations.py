@@ -33,6 +33,10 @@ def get_baseline_comparison():
 class AssistantRequest(BaseModel):
     prompt: str
     scenario_id: Optional[int] = None
+    city: Optional[str] = None
+    enso: Optional[Dict[str, Any]] = None
+    weather: Optional[Dict[str, Any]] = None
+    risk: Optional[Dict[str, Any]] = None
 
 class AssistantResponse(BaseModel):
     reply: str
@@ -168,6 +172,9 @@ SYSTEM_PROMPT = (
     "- Structure responses with bold headers, bullet points, and specific metrics\n"
     "- When suggesting infrastructure placements, mention concrete trade-offs\n"
     "- Always mention confidence level, key assumptions, and limitations\n"
+    "- For climate/rainfall risk questions (e.g. 'Why is rainfall risk elevated?'), follow this scientific phrasing: "
+    "'Rainfall risk is currently elevated based on multiple signals, including the seasonal pattern, recent weather conditions, and the current ENSO state. "
+    "ENSO is a contributing climate signal rather than a deterministic cause of local rainfall. Never invent ungrounded ENSO states.'\n"
     "- Keep responses concise but insightful (3-5 paragraphs max)\n\n"
     "Domain expertise: traffic engineering, urban planning, flood risk, air quality, "
     "energy grids, public health, green infrastructure, smart mobility, city resilience.\n\n"
@@ -200,7 +207,7 @@ def _call_gemini(prompt: str, context: str) -> Optional[str]:
         return None
 
 
-def _build_context(scenario_id: Optional[int], db: Session) -> str:
+def _build_context(req: AssistantRequest, db: Session) -> str:
     """Build a rich city-state context string to inject into the AI prompt."""
     lines = [
         "## Mirror City Digital Twin - Current State Context",
@@ -209,8 +216,43 @@ def _build_context(scenario_id: Optional[int], db: Session) -> str:
           "Crowd, Emergency, Economy, Environment, Master Coordinator",
         "- Data refresh rate: every 3 seconds via WebSocket streams",
     ]
-    if scenario_id:
-        scen = db.query(Scenario).filter_by(id=scenario_id).first()
+
+    # Resolve climate context (Deliverable L)
+    try:
+        from services.climate import enso_coordinator_service, climate_impact_service
+        from services.weather_service import weather_service
+        from simulation.continuous_engine import continuous_engine
+
+        active_meta = continuous_engine.active_city_metadata or {}
+        city_name = req.city or active_meta.get("name", "Chennai")
+        enso_data = req.enso or enso_coordinator_service.get_current_enso()
+        weather_data = req.weather or weather_service.get_weather()
+        location_payload = {
+            "city": city_name,
+            "lat": active_meta.get("lat", 13.0827),
+            "lng": active_meta.get("lng", 80.2707),
+            "elevation": active_meta.get("elevation", 20.0),
+            "country": (active_meta.get("hierarchy") or ["India"])[0]
+        }
+        risk_data = req.risk or climate_impact_service.calculate_climate_impact(
+            enso=enso_data,
+            location=location_payload
+        )
+
+        lines.append("## Climate & Environmental Context (CITY DNA / ENSO)")
+        lines.append(f"- City: {city_name}")
+        lines.append(f"- ENSO State: {json.dumps(enso_data)}")
+        lines.append(f"- Current Weather: {json.dumps(weather_data)}")
+        lines.append(f"- Sector Risk Indicators: {json.dumps(risk_data)}")
+        lines.append(
+            "- Attribution Guidelines: ENSO is a contributing climate signal rather than "
+            "a deterministic cause of local rainfall. Do not invent ENSO states."
+        )
+    except Exception as e:
+        logger.warning(f"Could not build full climate context: {e}")
+
+    if req.scenario_id:
+        scen = db.query(Scenario).filter_by(id=req.scenario_id).first()
         if scen:
             lines.append(f"- Active Scenario: {scen.name} - {scen.description or 'No description'}")
             lines.append(f"- Infrastructure Elements Placed: {len(scen.elements)}")
@@ -224,12 +266,45 @@ def _build_context(scenario_id: Optional[int], db: Session) -> str:
     return "\n".join(lines)
 
 
-def _keyword_fallback(prompt: str) -> AssistantResponse:
+def _keyword_fallback(req: AssistantRequest) -> AssistantResponse:
     """
     Deterministic fallback for common urban planning queries.
     Used when Gemini API is unavailable. Clearly labeled as offline fallback.
     """
-    p = prompt.lower()
+    p = req.prompt.lower()
+
+    # Deliverable L: Grounded explanation for climate and rainfall risk questions
+    if any(kw in p for kw in ["why is rainfall risk", "why rainfall risk", "rainfall risk elevated", "rainfall risk", "climate risk", "enso", "la nina", "la niña", "el nino", "el niño"]):
+        from services.climate import enso_coordinator_service, climate_impact_service
+        from services.weather_service import weather_service
+        from simulation.continuous_engine import continuous_engine
+
+        active_meta = continuous_engine.active_city_metadata or {}
+        city_name = req.city or active_meta.get("name", "Chennai")
+        enso_data = req.enso or enso_coordinator_service.get_current_enso()
+        phase = enso_data.get("phase", "NEUTRAL")
+        intensity = enso_data.get("intensity", "MODERATE")
+        weather = req.weather or weather_service.get_weather()
+
+        reply_text = (
+            "Rainfall risk is currently elevated based on multiple signals, including the seasonal pattern, "
+            f"recent weather conditions, and the current ENSO state ({phase}, {intensity}).\n\n"
+            "ENSO is a contributing climate signal rather than a deterministic cause of local rainfall.\n\n"
+            "**Contributing Climate Signals:**\n"
+            f"- **Global ENSO State:** {phase} ({intensity}, source: {enso_data.get('source', {}).get('name', 'NOAA CPC')})\n"
+            "- **Seasonal Pattern:** Northeast Monsoon / coastal convective storm trajectory\n"
+            f"- **Recent Weather Conditions:** {weather.get('condition', 'Clear')}, rain factor: {weather.get('rain_intensity', 0.0):.2f}\n\n"
+            "**Recommendation:**\n"
+            "Deploy **Storm Runoff Retention Basin** and clear secondary culverts to absorb elevated convective runoff."
+        )
+
+        return AssistantResponse(
+            reply=reply_text,
+            suggested_action={"type": "green_space", "name": "Storm Runoff Retention Basin"},
+            confidence_score=82.0,
+            assumptions=["ENSO data grounded in NOAA CPC observation", "Non-deterministic teleconnection"],
+            limitations=["ENSO is an atmospheric boundary signal, not a local deterministic forecast"]
+        )
 
     if any(kw in p for kw in ["rainfall", "rain", "flood", "storm", "drainage"]):
         return AssistantResponse(
@@ -285,6 +360,7 @@ def _keyword_fallback(prompt: str) -> AssistantResponse:
         reply=(
             "**Mirror City AI Assistant** *(Offline Fallback - Gemini API unavailable)*\n\n"
             "I can help analyse urban planning decisions. Try asking:\n"
+            "- *'Why is rainfall risk elevated?'* - Climate DNA & Teleconnection Explanation\n"
             "- *'What happens if rainfall increases by 40%?'* - Disaster Simulation\n"
             "- *'Where is the best place to build a hospital?'* - Healthcare Optimization\n"
             "- *'Should we widen the downtown roads?'* - Traffic vs Carbon Trade-offs\n\n"
@@ -308,12 +384,12 @@ def planning_assistant(
     AI-powered urban planning assistant backed by Google Gemini 1.5 Flash.
 
     Injects full city-state context (active scenario, element breakdown, simulation
-    metrics, agent architecture) into every prompt so answers are grounded in the
+    metrics, agent architecture, and Climate DNA/ENSO signals) into every prompt so answers are grounded in the
     live digital twin state. Falls back gracefully to labeled keyword responses
     when the Gemini API is offline or unavailable.
     """
     if settings.LLM_PROVIDER == "gemini" and settings.GEMINI_API_KEY:
-        context = _build_context(req.scenario_id, db)
+        context = _build_context(req, db)
         ai_text = _call_gemini(req.prompt, context)
         if ai_text:
             logger.info(f"Planning assistant served by Gemini AI (user={current_user.id})")
@@ -327,4 +403,4 @@ def planning_assistant(
         logger.warning("Gemini API call failed - falling back to keyword responses")
 
     logger.info(f"Planning assistant using keyword fallback (provider={settings.LLM_PROVIDER})")
-    return _keyword_fallback(req.prompt)
+    return _keyword_fallback(req)

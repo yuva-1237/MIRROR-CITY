@@ -12,6 +12,7 @@ import { Radio, AlertCircle, RefreshCw, Shield, Clock, Globe, Scale, Brain } fro
 
 import { useLocationStore } from '../store/locationStore';
 import LocationSearch from './LocationSearch';
+import { ClimateDNACard, ClimateDNAModal } from './ClimateDNA';
 
 
 interface CommandCenterProps {
@@ -25,6 +26,7 @@ export default function CommandCenter({ authToken, role, streamData: data, strea
   const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
   const [mapMode, setMapMode] = useState<'3d' | '2d'>('3d');
   const [agentTab, setAgentTab] = useState<'collaboration' | 'agents'>('collaboration');
+  const [isClimateModalOpen, setIsClimateModalOpen] = useState(false);
 
   const { activeLocation, initActiveLocation, isLoadingTwin } = useLocationStore();
 
@@ -90,6 +92,18 @@ export default function CommandCenter({ authToken, role, streamData: data, strea
               TICK: <span className="font-bold text-brand-neonCyan">{data?.tick || 0}</span>
             </span>
           </div>
+
+          {/* Climate DNA Signal Trigger */}
+          <button
+            onClick={() => setIsClimateModalOpen(true)}
+            className="flex items-center gap-1.5 bg-blue-950/70 hover:bg-blue-900/80 px-3 py-1.5 rounded-lg border border-blue-500/40 font-mono transition text-xs group"
+            title="Open CLIMATE DNA & ENSO Intelligence Module"
+          >
+            <Globe className="h-3.5 w-3.5 text-brand-neonCyan group-hover:rotate-45 transition-transform" />
+            <span className="text-[10px] text-slate-300 uppercase font-semibold">
+              CLIMATE: <span className="font-bold text-brand-neonCyan">{data?.climate_dna?.enso?.phase || 'ENSO'}</span>
+            </span>
+          </button>
         </div>
       </header>
 
@@ -241,8 +255,14 @@ export default function CommandCenter({ authToken, role, streamData: data, strea
               </div>
             </div>
 
-            {/* scrolling events and citizen reporting panel */}
+            {/* scrolling events, citizen reporting, and Climate DNA panel */}
             <div className="lg:col-span-4 flex flex-col gap-4">
+              {/* CLIMATE DNA Summary Card */}
+              <ClimateDNACard
+                climateData={data?.climate_dna}
+                onExplore={() => setIsClimateModalOpen(true)}
+              />
+
               <LiveEventFeed
                 telemetry={data.telemetry}
                 agentOutputs={data.agent_outputs}
@@ -321,6 +341,14 @@ export default function CommandCenter({ authToken, role, streamData: data, strea
           <span>ESTABLISHING BROADCAST CONNECTION TO SMART CITY SIMULATOR BUS...</span>
         </div>
       )}
+
+      {/* CLIMATE DNA Intelligence Modal */}
+      <ClimateDNAModal
+        isOpen={isClimateModalOpen}
+        onClose={() => setIsClimateModalOpen(false)}
+        activeCity={activeCity}
+        authToken={authToken}
+      />
     </div>
   );
 }

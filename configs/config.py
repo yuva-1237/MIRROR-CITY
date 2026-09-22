@@ -82,6 +82,7 @@ class Settings(BaseSettings):
 
     # --- Caching / limits ---
     GEOCODE_CACHE_TTL: int = 600
+    ENSO_CACHE_TTL: int = 21600         # 6 hours TTL for NOAA ENSO climate data
     RATE_LIMIT_PER_MINUTE: int = 60
 
     # --- Graph City Parameters ---

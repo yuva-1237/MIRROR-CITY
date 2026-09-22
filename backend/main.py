@@ -34,6 +34,7 @@ from api.incidents import router as incidents_router
 from api.live_metrics import router as live_metrics_router
 from api.geospatial import router as geospatial_router
 from api.evaluations import router as evaluations_router
+from api.climate import router as climate_router
 
 from services.city_clock import city_clock
 from services.ws_manager import ws_manager
@@ -141,6 +142,7 @@ app.include_router(incidents_router, prefix=settings.API_V1_STR)
 app.include_router(live_metrics_router, prefix=settings.API_V1_STR)
 app.include_router(geospatial_router, prefix=settings.API_V1_STR)
 app.include_router(evaluations_router, prefix=settings.API_V1_STR)
+app.include_router(climate_router, prefix=settings.API_V1_STR)
 
 import time
 from sqlalchemy import text

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User as UserIcon, LogOut, FileDown, Plus, LayoutDashboard, ArrowLeftRight, Settings, Radio, ShieldAlert } from 'lucide-react';
+import { User as UserIcon, LogOut, FileDown, Plus, LayoutDashboard, ArrowLeftRight, Settings, Radio, ShieldAlert, Globe } from 'lucide-react';
 import { apiFetch, apiPost, apiDelete, isTokenExpired, clearAuthState, registerOn401Handler, API_BASE_URL } from './lib/api';
 import AuthScreen from './components/AuthScreen';
 import { auth, signOut } from './lib/firebase';
@@ -15,6 +15,7 @@ import { useCityStream } from './hooks/useCityStream';
 import ConnectionStatusBadge from './components/ConnectionStatusBadge';
 import CommandCenter from './components/CommandCenter';
 import { useLocationStore } from './store/locationStore';
+import { ClimateDNAModal } from './components/ClimateDNA';
 
 
 interface Scenario {
@@ -43,6 +44,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'live_twin' | 'dashboard' | 'compare' | 'admin' | 'health'>('live_twin');
   const [sessionExpired, setSessionExpired] = useState(false);
   const [lastTickTimestamp, setLastTickTimestamp] = useState<string | undefined>();
+  const [isClimateModalOpen, setIsClimateModalOpen] = useState(false);
 
   // Track last-known-good tick timestamp for offline banner
   useEffect(() => {
@@ -325,6 +327,19 @@ export default function App() {
 
         {/* User Info & Actions */}
         <div className="flex items-center gap-3">
+          {/* Climate DNA Pill Trigger */}
+          <button
+            onClick={() => setIsClimateModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-950/70 hover:bg-blue-900/90 border border-blue-500/40 hover:border-blue-400 rounded-xl text-xs font-mono transition text-slate-200 group"
+            title="Open CLIMATE DNA & ENSO Intelligence Module"
+          >
+            <Globe size={13} className="text-brand-neonCyan group-hover:rotate-45 transition-transform" />
+            <span className="hidden md:inline text-[11px] font-bold text-slate-300">CLIMATE:</span>
+            <span className="text-[10px] font-bold text-brand-neonCyan uppercase">
+              {streamData?.climate_dna?.enso?.phase || 'ENSO'}
+            </span>
+          </button>
+
           <ConnectionStatusBadge
             connected={streamConnected}
             retryCount={retryCount}
@@ -558,12 +573,22 @@ export default function App() {
                 forecast={forecast}
                 onRunSimulation={() => activeScenarioId && triggerSimulation(activeScenarioId)}
                 simulating={simulating}
+                climateData={streamData?.climate_dna}
+                authToken={token}
               />
             </div>
           )}
         </section>
       </main>
       )}
+
+      {/* CLIMATE DNA Intelligence Center Modal */}
+      <ClimateDNAModal
+        isOpen={isClimateModalOpen}
+        onClose={() => setIsClimateModalOpen(false)}
+        activeCity={streamData?.active_city || activeLocation}
+        authToken={token}
+      />
 
       </RoleDashboard>
     </div>

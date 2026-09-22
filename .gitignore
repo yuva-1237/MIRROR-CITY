@@ -48,4 +48,4 @@ htmlcov/
 
 # Node modules
 node_modules/
-
+frontend/tests/bundle.test.*

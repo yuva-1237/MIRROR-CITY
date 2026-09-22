@@ -507,6 +507,30 @@ class FloodAI(LiveAgent):
             }
         ]
 
+        # Climate DNA (ENSO) Teleconnection Driver
+        climate_dna = self.last_observation.get("climate_dna") or {}
+        enso_info = climate_dna.get("enso", {})
+        flood_impact = climate_dna.get("impacts", {}).get("flood", {})
+        if flood_impact and flood_impact.get("level") in ["elevated", "high"]:
+            reasons.append(
+                f"Climate Intelligence Link: {enso_info.get('phase', 'ENSO')} teleconnection indicates "
+                f"statistically elevated rainfall variability, increasing catchment vulnerability."
+            )
+            self.telemetry_drivers.append({
+                "metric_key": "climate_flood_risk",
+                "metric_label": "Regional ENSO Flood Vulnerability",
+                "entity": "MIRROR CITY Climate Impact Engine",
+                "observed_value": flood_impact.get("score", 60),
+                "unit": "risk index",
+                "threshold": 50.0,
+                "comparison": ">",
+                "delta_from_threshold": f"{flood_impact.get('score', 60) - 50:+}",
+                "alert_severity": "warning",
+                "rationale": f"Coupled {enso_info.get('phase')} signal combined with local basin topography yields elevated flood risk score = {flood_impact.get('score', 60)}",
+                "sensor_source": "NOAA Climate Signal + Hydrostatic Catchment Model",
+                "confidence": int(flood_impact.get("confidence", 0.75) * 100)
+            })
+
         if self.alert_level != "normal":
             self.proposals = [
                 {
@@ -606,6 +630,32 @@ class WeatherAI(LiveAgent):
                 "confidence": 98
             }
         ]
+
+        # Climate DNA (ENSO) Teleconnection Driver
+        climate_dna = self.last_observation.get("climate_dna") or {}
+        enso_info = climate_dna.get("enso", {})
+        if enso_info and enso_info.get("phase") in ["El Niño", "La Niña"]:
+            c_phase = enso_info["phase"]
+            c_int = enso_info.get("intensity", "Moderate")
+            c_anom = enso_info.get("anomaly_c", 0.0)
+            reasons.append(
+                f"Global Climate Signal: {c_int} {c_phase} active (NOAA CPC, {c_anom:+.1f}°C). "
+                f"Atmospheric teleconnection shifts regional convective precipitation probabilities."
+            )
+            self.telemetry_drivers.append({
+                "metric_key": "enso_climate_signal",
+                "metric_label": f"Global ENSO Teleconnection ({c_phase})",
+                "entity": "NOAA Climate Prediction Center",
+                "observed_value": round(c_anom, 2),
+                "unit": "°C anomaly",
+                "threshold": 0.50 if c_phase == "El Niño" else -0.50,
+                "comparison": ">=" if c_phase == "El Niño" else "<=",
+                "delta_from_threshold": f"{c_anom:+0.2f}",
+                "alert_severity": "warning" if c_int in ["Strong", "Very Strong"] else "nominal",
+                "rationale": f"Coupled ocean-atmosphere signal indicates {c_int} {c_phase} conditions affecting seasonal precipitation.",
+                "sensor_source": enso_info.get("source", "NOAA CPC"),
+                "confidence": int(enso_info.get("confidence", 0.85) * 100)
+            })
             
         self.reasoning_chain = reasons
         self.log_thought(reasons[-1], {"condition": cond, "rain_intensity": rain})
